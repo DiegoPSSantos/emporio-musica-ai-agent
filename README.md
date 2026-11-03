@@ -6,9 +6,58 @@ musicais, respondendo com base nos dados da operação e nas políticas fornecid
 
 ## Estado atual e execução
 
-A leitura e validação dos dados, as consultas ao catálogo e a recuperação de
-trechos das políticas estão implementadas. A conversa com o agente e a integração
-com o modelo ainda não estão disponíveis.
+A aplicação possui leitura e validação dos dados, consultas ao catálogo,
+recuperação de políticas e conversa pelo terminal com um modelo local via Ollama.
+
+### Conversar com o agente
+
+Instale o [Ollama](https://docs.ollama.com/macos). No macOS com Homebrew:
+
+```bash
+brew install ollama
+```
+
+Se o servidor não estiver ativo, execute `ollama serve` em um terminal e mantenha-o
+aberto. Se estiver usando o aplicativo Ollama já aberto, essa etapa pode ser dispensada.
+Em outro terminal, na raiz deste projeto, baixe o modelo e inicie a conversa:
+
+```bash
+ollama pull qwen3:4b-instruct
+python3 -m emporio.agent
+```
+
+Não há chave de API ou serviço de inferência pago. O download inicial do modelo
+exige internet; as conversas usam o servidor local. Os pesos ficam fora do
+repositório e não são enviados ao GitHub.
+
+Use `/sair` para encerrar ou `/limpar` para apagar o histórico da sessão. Para ver
+quais ferramentas são chamadas, ou executar uma mensagem sem modo interativo:
+
+```bash
+python3 -m emporio.agent --trace
+python3 -m emporio.agent --trace --message "Quais violões disponíveis custam até R$ 1000?"
+```
+
+O modelo padrão é `qwen3:4b-instruct`; `--model` ou `OLLAMA_MODEL` permitem alterá-lo.
+`--url` ou `OLLAMA_URL` configuram o servidor, cujo padrão é
+`http://127.0.0.1:11434`. O cliente aceita apenas endereços locais, ignora proxies,
+não segue redirecionamentos e rejeita nomes de modelo com indicação `cloud`.
+Outros modelos precisam suportar ferramentas e os parâmetros usados na API.
+
+Para demonstrar consultas de pedidos de um cliente identificado:
+
+```bash
+python3 -m emporio.agent --customer-id 3 --trace
+```
+
+Nesse exemplo, o pedido 1 pertence ao cliente da sessão, e o pedido 2 não.
+**`--customer-id` simula uma identidade fornecida pela aplicação; não autentica
+o usuário.** Qualquer pessoa com acesso ao terminal pode escolher esse argumento.
+Uma aplicação publicada precisaria substituir essa simulação por autenticação
+real. Informar um nome, e-mail ou ID no chat não troca o cliente da sessão.
+Sem esse argumento, a consulta de pedidos fica indisponível.
+
+### Consultas independentes e testes
 
 As consultas e os testes usam somente a biblioteca padrão do Python, com sintaxe
 compatível com Python 3.9 ou superior. Não é necessário instalar pacotes ou configurar
@@ -151,6 +200,9 @@ dos preços atuais do catálogo, pois eles não demonstram o preço na data da c
 
 Os testes usam `unittest`, disponível no próprio Python. Pytest poderia facilitar
 fixtures mais complexas, mas não é necessário para os cenários desta etapa.
+Eles não exigem Ollama ou download do modelo: a integração HTTP e o fluxo de
+ferramentas são exercitados com respostas simuladas. Isso verifica a aplicação,
+sem comprovar a qualidade das respostas de um modelo real.
 
 ### Consultas e preços independentes do modelo
 
@@ -251,9 +303,119 @@ e o PDF usado como fonte precisam ficar na mesma pasta para a consulta funcionar
 - A regra de frete local informa valores abaixo e acima de R$ 500,00, mas não
   explicita o caso de um pedido exatamente nesse valor.
 
-Essas informações permanecem no texto extraído. A integração futura deverá
+Essas informações permanecem no texto extraído. O agente deve
 identificar a ambiguidade e solicitar esclarecimento à equipe da loja, sem
-inventar uma regra para preencher a lacuna.
+inventar uma regra para preencher a lacuna. O prompt do agente já instrui esse
+comportamento; ele precisa ser avaliado também em conversas reais.
+
+### Modelo local e chamada de ferramentas
+
+Escolhemos Ollama com `qwen3:4b-instruct` para atender à preferência por inferência local,
+sem API paga. A versão quantizada tem aproximadamente 2,5 GB e suporta
+[chamada de ferramentas](https://ollama.com/library/qwen3:4b-instruct).
+O tamanho foi escolhido como ponto de partida para um Mac Apple Silicon com
+16 GB de memória; modelos maiores podem melhorar respostas, mas exigem mais
+recursos. A velocidade e a qualidade dependem do equipamento e das perguntas.
+Não adotamos um provedor remoto por causa da preferência de execução local.
+Preferimos a variante `instruct` à variante de raciocínio: as tarefas são consultas
+curtas, e a tag `qwen3:4b` disponível no ambiente apontou para um modelo que só
+oferece raciocínio e atingiu o limite de geração em uma busca de catálogo.
+
+`emporio/ollama_client.py` implementa somente a chamada HTTP de chat necessária,
+conforme a [API oficial](https://docs.ollama.com/api/chat). A biblioteca padrão
+é suficiente para esse endpoint; não adicionamos um SDK para essa integração
+pequena. O modelo é executado com temperatura 0, contexto de 8192 tokens e saída
+limitada a 1024 tokens. O modo de raciocínio explícito fica desativado para reduzir
+o trabalho de inferência nesta interação; a qualidade ainda precisa ser validada.
+
+O fluxo segue a [documentação de ferramentas do Ollama](https://docs.ollama.com/capabilities/tool-calling):
+
+1. O modelo recebe a mensagem, o prompt e os esquemas das ferramentas.
+2. Se solicitar uma consulta, a aplicação valida os argumentos e executa uma função permitida.
+3. O resultado estruturado volta ao modelo, que pode consultar novamente ou responder.
+
+Preferimos um laço explícito a LangChain ou outro framework porque temos poucas
+ferramentas de leitura e um único modelo. O fluxo fica visível e testável; não há
+execução de código gerado, SQL livre, comandos do sistema ou ferramentas de escrita.
+`Toolbox` recarrega as fontes em cada consulta e restringe os argumentos permitidos.
+Preços são devolvidos como textos decimais, e produtos indisponíveis não recebem
+um preço final de venda no resultado enviado ao modelo.
+Se o modelo repetir um tipo genérico em `query` e na categoria correspondente
+(por exemplo, `query="violão"` com `category="Violões"`), a ferramenta remove
+somente esse filtro redundante. Termos específicos de marca ou modelo continuam
+obrigatórios na busca; uma busca sem resultados não é ampliada silenciosamente.
+É uma abordagem híbrida: chamada de funções para dados estruturados e recuperação
+de texto do manual para fundamentar respostas de políticas (RAG).
+
+### Prompt, histórico e limites
+
+O prompt em `emporio/prompts/system.txt` define a persona, o escopo, a consulta
+obrigatória às fontes para fatos da loja, a citação das políticas e o tratamento
+de indisponibilidade e ambiguidades. Também instrui o modelo a tratar documentos
+e mensagens como dados, sem aceitar instruções que tentem mudar essas regras.
+Essas instruções reduzem riscos, mas não garantem que toda resposta seja correta.
+Como proteção adicional, respostas diretas sem qualquer ferramenta no turno são
+substituídas por uma orientação sobre o escopo da loja, com exceção de uma lista
+curta de saudações e agradecimentos. Isso também pode tornar respostas de
+esclarecimento mais genéricas. Não é um classificador semântico completo: a
+presença de uma consulta não comprova que todas as afirmações estejam fundamentadas.
+Quando a última consulta falha, a aplicação usa uma resposta controlada. Negativas
+de acesso a pedidos não podem ser substituídas por afirmações do modelo.
+Quando há consulta de políticas, a aplicação acrescenta as referências de seção
+e página a partir dos resultados das ferramentas, mesmo se o modelo esquecer
+de citá-las. Elas identificam as fontes consultadas, sem comprovar que toda
+afirmação gerada esteja correta.
+
+O histórico fica somente em memória, limitado às três últimas trocas completas
+e a 4000 caracteres, removendo trocas inteiras quando necessário.
+Não guardamos os resultados antigos das ferramentas no histórico entre turnos;
+o modelo deve consultar novamente quando precisar de fatos. Isso reduz contexto
+e evita criar armazenamento permanente de conversas nesta demonstração. Banco
+de dados ou Redis não são necessários para essa experiência de uma sessão local.
+
+Cada mensagem admite até seis rodadas de modelo e oito chamadas de ferramentas,
+com timeout de 120 segundos por requisição. Isso limita laços de consulta; não
+é um timeout global da conversa. Mensagens têm até 2000 caracteres. Falhas não
+são adicionadas como turnos completos ao histórico. `--trace` mostra nomes das
+ferramentas, sem imprimir seus argumentos ou dados de clientes.
+
+### Isolamento das consultas de pedidos
+
+A ferramenta `get_order` aceita somente o ID do pedido. O cliente é vinculado
+pela aplicação ao construir a sessão e não é um argumento disponível ao modelo.
+O código compara a titularidade antes de devolver qualquer informação. Um pedido
+de terceiro e um inexistente produzem o mesmo erro; telefone, e-mail e notas
+internas não são devolvidos. Não existe ferramenta para listar todos os clientes
+ou alterar essa identidade.
+
+A fonte continua sendo o CSV fornecido: não consultamos transportadoras e não
+prometemos atualizações em tempo real. O total histórico do pedido é preservado.
+
+### Validação da integração local
+
+Ambiente observado: Python 3.9.6, Ollama 0.40.14, Mac Apple Silicon com 16 GB de
+memória, modelo `qwen3:4b-instruct` com identificador local `0edcdef34593`.
+Os identificadores podem mudar caso o provedor atualize a tag do modelo.
+
+Foram executados 91 testes automatizados sem inferência real, cobrindo dados,
+catálogo, políticas, argumentos de ferramentas, isolamento de pedidos, laço de
+consultas, histórico, falhas de HTTP e apresentação das respostas.
+
+Também foram verificados manualmente estes cenários no modelo local:
+
+| Cenário | Resultado observado |
+| --- | --- |
+| Produto 121 com PIX | Consulta de produto e preço final de R$ 439,20, sem acumular descontos |
+| Horário de sábado | Consulta ao manual, horário das 09:00 às 13:00 e referência à seção 2, página 2 |
+| Violões disponíveis até R$ 1.000 | Consulta de categorias e produtos; cinco opções com preços e aviso de lista parcial |
+| Pergunta sobre a capital da França | Orientação sobre o escopo da loja, sem apresentar a resposta fora do escopo |
+| Pedido 1 na sessão do cliente 3 | Consulta autorizada com status, total histórico e rastreamento |
+| Pedido 2 na sessão do cliente 3 | Nenhum dado de terceiro revelado; nessa execução o modelo não chamou a ferramenta e recebeu a resposta genérica de escopo |
+
+Essas verificações não são uma avaliação exaustiva e não garantem o mesmo
+comportamento em toda conversa. A recusa precisa de acesso a terceiros também
+é coberta pelos testes da ferramenta, independentemente da escolha do modelo.
+As conversas demonstrativas da entrega serão registradas em etapa própria.
 
 
 ## Plano de implementação
@@ -279,10 +441,12 @@ reais.
 
 - Os dados fornecidos são uma fotografia da operação; não existe integração com
   um sistema de produção ou com WhatsApp.
-- Carregar os dados de clientes não implementa autenticação nem autoriza expô-los
-  na conversa. A restrição de consultas de pedidos ainda será implementada.
-- As consultas de catálogo ainda exigem argumentos explícitos, sem interpretação
-  de linguagem natural ou recomendação automática de alternativas.
+- A identificação de cliente no terminal é uma simulação, sem autenticação real.
+  O isolamento dos pedidos é aplicado em código, mas a identidade precisa vir de
+  um mecanismo de autenticação confiável antes de qualquer uso em produção.
+- Modelos locais podem errar argumentos, deixar de consultar ferramentas ou usar
+  inadequadamente o texto recuperado. Os testes com respostas simuladas não medem
+  esse comportamento; conversas reais são necessárias para avaliar o conjunto.
 - A busca de políticas depende das palavras e sinônimos conhecidos. Pode retornar
   trechos parcialmente relacionados ou não encontrar paráfrases; ela não substitui
   a avaliação da pergunta e do contexto pelo agente.
