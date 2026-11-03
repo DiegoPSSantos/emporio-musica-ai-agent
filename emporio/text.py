@@ -1,4 +1,4 @@
-"""Normalização compartilhada pelas buscas de catálogo e políticas."""
+"""Text normalization shared by catalog and policy search."""
 
 import unicodedata
 

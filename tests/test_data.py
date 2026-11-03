@@ -55,7 +55,7 @@ class DatasetTests(unittest.TestCase):
         self.assertEqual(load_dataset(self.directory).products[81].stock_quantity, 0)
 
     def test_invalid_money_is_rejected(self):
-        for value in ("-1", "NaN", "Infinity", "não é um preço", ""):
+        for value in ("-1", "NaN", "Infinity", "not a price", ""):
             with self.subTest(value=value):
                 self.rewrite("products", lambda rows: rows[0].update(price_brl=value))
                 with self.assertRaisesRegex(DataValidationError, "products.csv.*price_brl"):
@@ -84,7 +84,7 @@ class DatasetTests(unittest.TestCase):
 
     def test_duplicate_primary_key_is_rejected(self):
         self.rewrite("products", lambda rows: rows.append(rows[0].copy()))
-        with self.assertRaisesRegex(DataValidationError, "chave duplicada.*product_id"):
+        with self.assertRaisesRegex(DataValidationError, "duplicate key.*product_id"):
             load_dataset(self.directory)
 
     def test_broken_references_are_rejected(self):
@@ -100,7 +100,7 @@ class DatasetTests(unittest.TestCase):
                 (self.directory / f"{table}.csv").write_bytes(original)
 
     def test_invalid_dates_and_specifications_are_rejected(self):
-        cases = [("created_at", "2026-02-30"), ("specs", "{inválido"),
+        cases = [("created_at", "2026-02-30"), ("specs", "{invalid"),
                  ("specs", "[]"), ("specs", '{"strings": 3}')]
         for field, value in cases:
             with self.subTest(field=field, value=value):
@@ -130,7 +130,7 @@ class DatasetTests(unittest.TestCase):
         with self.assertRaisesRegex(DataValidationError, "categories.csv"):
             load_dataset(self.directory)
         path.write_text("category_id,name,description\n", encoding="utf-8")
-        with self.assertRaisesRegex(DataValidationError, "tabela vazia"):
+        with self.assertRaisesRegex(DataValidationError, "empty table"):
             load_dataset(self.directory)
 
     def test_utf8_bom_is_supported(self):
@@ -140,14 +140,14 @@ class DatasetTests(unittest.TestCase):
         self.assertTrue(load_dataset(self.directory).categories)
 
     def test_errors_do_not_include_personal_cell_contents(self):
-        self.rewrite("customers", lambda rows: rows[0].update(customer_id="dado-privado"))
+        self.rewrite("customers", lambda rows: rows[0].update(customer_id="private-value"))
         with self.assertRaises(DataValidationError) as caught:
             load_dataset(self.directory)
         self.assertIn("customer_id", str(caught.exception))
-        self.assertNotIn("dado-privado", str(caught.exception))
+        self.assertNotIn("private-value", str(caught.exception))
 
     def test_cli_returns_error_for_invalid_data_without_traceback(self):
-        self.rewrite("products", lambda rows: rows[0].update(price_brl="inválido"))
+        self.rewrite("products", lambda rows: rows[0].update(price_brl="invalid"))
         result = subprocess.run(
             [sys.executable, "-m", "emporio.data", "--data-dir", str(self.directory)],
             cwd=DEFAULT_DATA_DIR.parent,

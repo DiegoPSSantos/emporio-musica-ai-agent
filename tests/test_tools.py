@@ -33,6 +33,21 @@ class ToolboxTests(unittest.TestCase):
         result = Toolbox().execute("search_products", {"query": "Fender", "category": "Violões"})
         self.assertEqual(result["total_matches"], 0)
 
+    def test_english_categories_keep_original_catalog_results(self):
+        toolbox = Toolbox()
+        english = toolbox.execute("search_products", {"query": "guitars", "category": "Acoustic guitars", "max_price": "1000"})
+        original = toolbox.execute("search_products", {"category": "Violões", "max_price": "1000"})
+        self.assertEqual(english, original)
+        self.assertEqual(english["total_matches"], 12)
+        self.assertEqual(english["products"][0]["category"], "Acoustic guitars")
+
+    def test_category_list_and_promotional_labels_are_in_english(self):
+        toolbox = Toolbox()
+        names = {category["name"] for category in toolbox.execute("list_categories", {})["categories"]}
+        self.assertIn("Acoustic guitars", names)
+        self.assertIn("Woodwind instruments", names)
+        self.assertEqual(toolbox.execute("get_product", {"product_id": 121})["product"]["promotion_description"], "Exclusive discount")
+
     def test_invalid_arguments_and_unlisted_functions_cannot_be_executed(self):
         cases = [("get_product", {"product_id": True}),
                  ("get_product", {}), ("list_categories", {"path": "/etc/passwd"}),
@@ -52,11 +67,11 @@ class ToolboxTests(unittest.TestCase):
         self.assertIsNone(product["price_brl"])
 
     def test_policy_results_include_text_section_and_page(self):
-        result = Toolbox().execute("search_policies", {"query": "devolver", "limit": 1})
+        result = Toolbox().execute("search_policies", {"query": "return", "limit": 1})
         section = result["sections"][0]
         self.assertEqual(section["section_id"], "4")
         self.assertEqual(section["pages"], [4])
-        self.assertIn("4.4 Itens Não Elegíveis", section["text"])
+        self.assertIn("4.4 Items Not Eligible", section["text"])
 
     def test_order_requires_session(self):
         self.assertEqual(Toolbox().execute("get_order", {"order_id": 1})["error"]["code"], "session_required")

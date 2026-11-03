@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "source": "politicas_da_loja.pdf",
+  "source_sha256": "b7527f96896929f4ba929de117651c6717e25b7a3b92b34bc54d5ba32f6156f7",
+  "extractor": "pypdf 6.10.0 (layout)",
+  "language": "en",
+  "source_language": "pt-BR",
+  "translation_of": "politicas_da_loja.json",
+  "translation_source_sha256": "a0d80b34190dfc4b36bdf5f9bb4d9bfae2c69547446404ee54eba0a055588c1e",
+  "translation_note": "English reference translation. The supplied Portuguese PDF is authoritative.",
+  "sections": [
+    {
+      "section_id": "1",
+      "title": "About Empório da Música",
+      "pages": [
+        2
+      ],
+      "text": "1. About Empório da Música\nEmpório da Música is a specialist musical instrument store founded in 2008 in Campo Grande, Mato Grosso do Sul, Brazil. With more than 15 years in business, it is a regional reference for beginner, intermediate and professional musicians.\nThe manual describes a catalog of more than 300 instruments from Brazilian and international brands, including electric guitars, basses, acoustic guitars, drums, keyboards, wind instruments, orchestral strings and ukuleles.\nWe sell musical instruments exclusively. We do not sell accessories such as strings, picks, cables, cases, pedals or amplifiers.\n1.1 Mission\nMake quality musical instruments accessible in Brazil's Central-West region, offering specialist service and competitive prices while contributing to the community's cultural and musical development.\n1.2 Company Details\nLegal name: Empório da Música Instrumentos Musicais Ltda.\nTrading name: Empório da Música\nCNPJ: 12.345.678/0001-90\nAddress: Rua 14 de Maio, 3200 — Centro, Campo Grande - MS, 79202-333\nPhone / WhatsApp: (67) 3341-4444\nEmail: contato@empóriodamusica.com.br\nFounded: 2008",
+      "anchors": [
+        "About Empório da Música",
+        "1.1 Mission",
+        "1.2 Company Details",
+        "Legal name",
+        "Trading name",
+        "CNPJ",
+        "Address",
+        "Phone / WhatsApp",
+        "Email",
+        "Founded"
+      ]
+    },
+    {
+      "section_id": "2",
+      "title": "Opening Hours",
+      "pages": [
+        2
+      ],
+      "text": "2. Opening Hours\nIn-store service follows the hours below. WhatsApp service follows the same schedule, with automated replies outside business hours.\nMonday to Friday: 09:00 to 18:00\nSaturday: 09:00 to 13:00\nSundays and public holidays: Closed\nHours may be extended for special occasions such as Black Friday, the store anniversary and Christmas. Changes will be announced in advance on social media and through WhatsApp support.",
+      "anchors": [
+        "Opening Hours",
+        "Monday to Friday",
+        "Saturday",
+        "Sundays and public holidays"
+      ]
+    },
+    {
+      "section_id": "3",
+      "title": "Payment Methods",
+      "pages": [
+        3
+      ],
+      "text": "3. Payment Methods\nThe following methods are accepted for in-store and online purchases:\nPIX: Immediate payment; 5% discount on the list price.\nDebit card: Immediate payment; all card networks accepted.\nCredit card: Up to 12 interest-free installments; minimum installment BRL 100.00.\nBank payment slip (boleto): Single payment; clearing can take up to 3 business days.\n3.1 Installment Rules\nUp to 3 installments: interest-free, with no minimum installment amount (except below BRL 50.00).\n4 to 6 installments: interest-free, minimum installment BRL 80.00.\n7 to 12 installments: interest-free, minimum installment BRL 100.00.\nCombining payment methods, such as PIX and card, is allowed for purchases above BRL 2,000.00.",
+      "anchors": [
+        "Payment Methods",
+        "PIX",
+        "Debit card",
+        "Credit card",
+        "Bank payment slip (boleto)",
+        "3.1 Installment Rules",
+        "Up to 3 installments",
+        "4 to 6 installments",
+        "7 to 12 installments"
+      ]
+    },
+    {
+      "section_id": "4",
+      "title": "Exchanges and Returns",
+      "pages": [
+        4
+      ],
+      "text": "4. Exchanges and Returns\nEmpório da Música follows the Brazilian Consumer Protection Code (Law 8.078/90) and provides clear exchange and return conditions.\n4.1 Right of Withdrawal for Online Purchases\nCustomers may request a return within 7 calendar days after receiving the product, without providing a reason.\nThe product must be in its original packaging, show no signs of use and include all accessories and manuals.\nRefunds use the original payment method and are processed within 10 business days.\nThe store pays return shipping for withdrawal returns.\n4.2 Exchanges for Defects\nProducts with manufacturing defects may be exchanged within 30 calendar days after purchase.\nAfter those 30 days, the customer must contact the manufacturer directly for warranty service. The store can assist with that process on request.\nDamage caused by misuse, falls, excessive humidity or unauthorized modifications is not covered.\n4.3 Exchanges Based on Preference\nExchanges for a different color, model or size are allowed within 7 days, subject to availability of the desired product.\nThe product must be in perfect condition and in its original packaging.\nPrice differences will be charged or refunded as applicable.\n4.4 Items Not Eligible for Exchange\nInstruments with customization or made-to-order adjustments, including setup or special regulation.\nClearance products explicitly marked as final sale.\nWind instrument mouthpieces, for hygiene reasons.",
+      "anchors": [
+        "Exchanges and Returns",
+        "4.1 Right of Withdrawal for Online Purchases",
+        "4.2 Exchanges for Defects",
+        "4.3 Exchanges Based on Preference",
+        "4.4 Items Not Eligible for Exchange"
+      ]
+    },
+    {
+      "section_id": "5",
+      "title": "Shipping and Delivery",
+      "pages": [
+        4,
+        5
+      ],
+      "text": "5. Shipping and Delivery\n5.1 Delivery in the Campo Grande Metropolitan Area\nFree shipping for orders above BRL 500.00.\nOrders below BRL 500.00 have a fixed BRL 35.00 shipping fee.\nDelivery time: 1 to 3 business days.\nDelivery is handled by the store's own motorcycle courier. The customer will be contacted by phone before delivery.\n5.2 Delivery to Other Cities\nWe use Correios PAC and SEDEX, and the Jadlog carrier, outside the Campo Grande metropolitan area.\nPAC (Correios): estimated 5 to 12 business days; tracking available; insurance included.\nSEDEX (Correios): estimated 2 to 5 business days; tracking available; insurance included.\nJadlog (.package): estimated 3 to 8 business days; tracking available; insurance included.\nShipping cost is calculated automatically from the destination postal code, product weight and dimensions. Large instruments such as acoustic drum kits, digital pianos and double basses may require an individual shipping quote.\nAll shipments include insurance against loss and transit damage. If a shipment is damaged, the customer should refuse delivery and contact the store immediately.\n5.3 Tracking Code\nThe tracking code is sent automatically by email and WhatsApp when the order is dispatched.\nThe standard format is BR followed by 9 alphanumeric characters and BR, for example BR4K7M2X9P1BR.\nTracking can be checked directly on the Correios or Jadlog website.",
+      "anchors": [
+        "Shipping and Delivery",
+        "5.1 Delivery in the Campo Grande Metropolitan Area",
+        "Delivery time",
+        "5.2 Delivery to Other Cities",
+        "PAC (Correios)",
+        "SEDEX (Correios)",
+        "Jadlog (.package)",
+        "5.3 Tracking Code"
+      ]
+    },
+    {
+      "section_id": "6",
+      "title": "Promotions and Discounts",
+      "pages": [
+        6
+      ],
+      "text": "6. Promotions and Discounts\n6.1 Promotion Types\nThe store runs periodic campaigns throughout the year:\nStore anniversary in August: 10% to 25% off selected items.\nBlack Friday in November: 15% to 30% off the catalog.\nBack to school in February: special offers on student instruments.\nStock clearance: occasional promotions to renew the catalog.\nMusician's Week: promotions during the week of Musician's Day, November 22.\n6.2 Promotion Rules\nStacking: promotions cannot be combined. The 5% PIX discount does not apply to already-discounted promotional prices.\nStock: promotions depend on stock availability. Products that sell out during a promotion do not qualify for a rain check or reserved promotional price.\nCommunication: promotional prices must always be shown alongside the original price and discount percentage for transparency.",
+      "anchors": [
+        "Promotions and Discounts",
+        "6.1 Promotion Types",
+        "Store anniversary in August",
+        "Black Friday in November",
+        "Back to school in February",
+        "Stock clearance",
+        "Musician's Week",
+        "6.2 Promotion Rules",
+        "Stacking",
+        "Stock",
+        "Communication"
+      ]
+    },
+    {
+      "section_id": "7",
+      "title": "WhatsApp Customer Support",
+      "pages": [
+        6,
+        7
+      ],
+      "text": "7. WhatsApp Customer Support\nWhatsApp at (67) 3321-4500 is the main remote support channel. Service may be provided by human staff or the virtual assistant.\n7.1 Service Guidelines\nTone: informal but professional. Customers should feel welcome, as if talking to a friend who understands music. Avoid excessively formal or robotic language.\nResponse time: at most 5 minutes during business hours. Outside those hours, the virtual assistant must state when service resumes.\nAccuracy: never provide prices, stock availability or delivery estimates without consulting the system. Incorrect information frustrates customers and may constitute misleading advertising.\nScope: explain that the store sells musical instruments exclusively. Requests for accessories such as strings, cables, picks, pedals, amplifiers or cases should be politely redirected. Suggest partner stores when possible.\n7.2 Standard Service Flow\n1. Greeting: greet the customer by name when available and ask how you can help.\n2. Understanding: identify whether the customer needs a product, information, tracking or help with a complaint.\n3. Lookup: query the system for relevant product, stock, promotion or order information.\n4. Response: present options clearly, with prices and conditions.\n5. Closing: check whether the customer needs anything else and close courteously.\n7.3 Special Situations\nOut of stock: explain that the product is temporarily unavailable and suggest similar available options. Never confirm availability without checking current stock.\nDiscontinued product: explain that the product is no longer part of the catalog and offer equivalent or successor models.\nExpired promotion: check whether it is active in the system. If it has expired, explain this transparently and provide the current price. Never promise a discount that is no longer valid.\nComplaint: listen empathetically, record the complaint and refer it to the responsible person. Response time: 24 business hours.",
+      "anchors": [
+        "WhatsApp Customer Support",
+        "7.1 Service Guidelines",
+        "Tone",
+        "Response time",
+        "Accuracy",
+        "Scope",
+        "7.2 Standard Service Flow",
+        "1. Greeting",
+        "2. Understanding",
+        "3. Lookup",
+        "4. Response",
+        "5. Closing",
+        "7.3 Special Situations",
+        "Out of stock",
+        "Discontinued product",
+        "Expired promotion",
+        "Complaint"
+      ]
+    },
+    {
+      "section_id": "8",
+      "title": "Warranty",
+      "pages": [
+        7
+      ],
+      "text": "8. Warranty\n8.1 Statutory Warranty\nAccording to the Brazilian Consumer Protection Code, all products have a 90-calendar-day statutory warranty against manufacturing defects, starting when the customer receives the product.\n8.2 Manufacturer Warranty\nIn addition to the statutory warranty, most manufacturers offer their own warranty ranging from 6 months to 2 years. Specific periods and conditions are detailed in the warranty certificate supplied with each product.\n8.3 Warranty Exclusions\nNormal wear of components such as frets, strings, felts and wind instrument reeds.\nDamage caused by misuse, falls or exposure to extreme weather conditions.\nModifications or repairs by unauthorized third parties.\nCosmetic damage that does not affect the instrument's functionality.",
+      "anchors": [
+        "Warranty",
+        "8.1 Statutory Warranty",
+        "8.2 Manufacturer Warranty",
+        "8.3 Warranty Exclusions"
+      ]
+    },
+    {
+      "section_id": "9",
+      "title": "Privacy and Data Protection",
+      "pages": [
+        7,
+        8
+      ],
+      "text": "9. Privacy and Data Protection\nThe store follows Brazil's General Data Protection Law (LGPD, Law 13.709/2018).\nPersonal data collected during support, including name, phone number, email and address, are used exclusively for:\nProcessing and delivering orders.\nCommunicating order status and tracking information.\nSending promotions and news with the customer's explicit consent.\nMeeting legal and tax obligations.\nCustomer data are not shared with third parties for marketing. Customers may request deletion of their data at any time through WhatsApp or email.",
+      "anchors": [
+        "Privacy and Data Protection"
+      ]
+    },
+    {
+      "section_id": "10",
+      "title": "Final Provisions",
+      "pages": [
+        8
+      ],
+      "text": "10. Final Provisions\nThis internal manual is a reference for all support staff, including the virtual assistant. Its policies may be updated periodically.\nIf a policy's application is unclear, the support representative must consult management before giving information to the customer.\nThe goal is transparency, accuracy and the best possible customer experience.\nEmpório da Música — Your music starts here.\nLast updated: June 2025 — Version 2.1",
+      "anchors": [
+        "Final Provisions",
+        "Last updated"
+      ]
+    }
+  ]
+}

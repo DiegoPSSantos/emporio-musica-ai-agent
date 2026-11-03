@@ -1,4 +1,4 @@
-"""Extrai as seções do manual, preservando sua origem e o texto das regras."""
+"""Extract manual sections while preserving their provenance and rule text."""
 
 import argparse
 import hashlib
@@ -10,10 +10,10 @@ from emporio.data import DEFAULT_DATA_DIR
 
 
 def extract_sections(pages: list[str]) -> list[dict]:
-    """Reconhece títulos na margem esquerda do layout deste manual.
+    """Recognize left-aligned headings in this specific manual layout.
 
-    Listas numeradas recuadas permanecem no corpo da seção. Cabeçalhos e
-    rodapés são removidos; tabelas mantêm uma linha de texto por linha extraída.
+    Keep indented numbered lists inside their section. Remove repeated headers
+    and footers, keeping one text line per extracted table row.
     """
     sections = []
     current = None
@@ -28,7 +28,7 @@ def extract_sections(pages: list[str]) -> list[dict]:
             if heading:
                 section_id, title = heading.groups()
                 if section_id != str(len(sections) + 1):
-                    raise ValueError("Sequência inesperada de seções; revise o layout do PDF.")
+                    raise ValueError("Unexpected section sequence; review the PDF layout.")
                 current = {
                     "section_id": section_id,
                     "title": title.strip(),
@@ -50,21 +50,21 @@ def extract_sections(pages: list[str]) -> list[dict]:
                 if anchor and anchor not in current["anchors"]:
                     current["anchors"].append(anchor)
     if not sections or any(len(section["text"].splitlines()) < 2 for section in sections):
-        raise ValueError("Não foi possível extrair seções completas do PDF.")
+        raise ValueError("Could not extract complete PDF sections.")
     for section in sections:
         section["text"] = section["text"].rstrip()
     return sections
 
 
 def build_index(source: Path) -> dict:
-    # A dependência é opcional para quem apenas executa consultas ou testes.
+    # This dependency is optional for queries and tests.
     import pypdf
 
     try:
         reader = pypdf.PdfReader(source)
         pages = [page.extract_text(extraction_mode="layout") for page in reader.pages]
     except pypdf.errors.PyPdfError:
-        raise ValueError("Não foi possível extrair o texto do PDF.") from None
+        raise ValueError("Could not extract PDF text.") from None
     return {
         "schema_version": 1,
         "source": source.name,
@@ -75,27 +75,27 @@ def build_index(source: Path) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Gera o índice de políticas a partir do PDF.")
+    parser = argparse.ArgumentParser(description="Build the original-language policy index from the PDF.")
     parser.add_argument("--source", type=Path, default=DEFAULT_DATA_DIR / "politicas_da_loja.pdf")
     parser.add_argument("--output", type=Path, default=DEFAULT_DATA_DIR / "politicas_da_loja.json")
-    parser.add_argument("--check", action="store_true", help="Confere o índice sem gravar arquivos.")
+    parser.add_argument("--check", action="store_true", help="Check the index without writing files.")
     args = parser.parse_args()
     try:
         index = build_index(args.source)
         if args.check:
             saved = json.loads(args.output.read_text(encoding="utf-8"))
             if saved != index:
-                raise ValueError("Índice diferente da extração atual; regenere e revise as alterações.")
-            print("Índice confere com a extração do PDF.")
+                raise ValueError("The index differs from the current extraction; rebuild and review the changes.")
+            print("The index matches the PDF extraction.")
         else:
             args.output.write_text(
                 json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
-            print(f"Índice gerado: {len(index['sections'])} seções em {args.output}")
+            print(f"Index generated: {len(index['sections'])} sections in {args.output}")
     except ModuleNotFoundError:
-        parser.exit(1, "Instale a dependência de extração: python3 -m pip install -r requirements-ingest.txt\n")
+        parser.exit(1, "Install the extraction dependency: python3 -m pip install -r requirements-ingest.txt\n")
     except (OSError, ValueError) as error:
-        parser.exit(1, f"Erro ao preparar políticas: {error}\n")
+        parser.exit(1, f"Policy preparation error: {error}\n")
 
 
 if __name__ == "__main__":

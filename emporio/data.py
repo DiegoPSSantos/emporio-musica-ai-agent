@@ -1,4 +1,4 @@
-"""Leitura dos CSVs fornecidos, sem dependências externas ou acesso ao modelo."""
+"""Read the supplied CSV files without external dependencies or model access."""
 
 import argparse
 import csv
@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 
 class DataValidationError(ValueError):
-    """Os dados não podem ser usados com segurança pelas consultas."""
+    """The dataset cannot be used safely by queries."""
 
 
 @dataclass(frozen=True)
@@ -91,21 +91,21 @@ def _convert(field: str, value: str):
     if not value:
         if field in {"tracking_code", "estimated_delivery", "notes"}:
             return None
-        raise ValueError("campo obrigatório vazio")
+        raise ValueError("required field is empty")
 
     if field.endswith("_id") or field in {"stock_quantity", "quantity"}:
         number = int(value)
         minimum = 0 if field == "stock_quantity" else 1
         if number < minimum:
-            raise ValueError(f"inteiro deve ser maior ou igual a {minimum}")
+            raise ValueError(f"integer must be greater than or equal to {minimum}")
         return number
 
     if field in {"price_brl", "total_brl", "discount_percent"}:
         number = Decimal(value)
         if not number.is_finite() or number < 0:
-            raise ValueError("decimal deve ser finito e não negativo")
+            raise ValueError("decimal must be finite and non-negative")
         if field == "discount_percent" and number > 100:
-            raise ValueError("desconto deve estar entre 0 e 100")
+            raise ValueError("discount must be between 0 and 100")
         return number
 
     if field in {"created_at", "order_date", "estimated_delivery"}:
@@ -113,7 +113,7 @@ def _convert(field: str, value: str):
 
     if field == "is_active":
         if value not in {"0", "1"}:
-            raise ValueError("indicador deve ser 0 ou 1")
+            raise ValueError("flag must be 0 or 1")
         return value == "1"
 
     if field == "specs":
@@ -122,7 +122,7 @@ def _convert(field: str, value: str):
             isinstance(key, str) and isinstance(item, str)
             for key, item in specs.items()
         ):
-            raise ValueError("especificações devem ser um objeto JSON de textos")
+            raise ValueError("specifications must be a JSON object of strings")
         return specs
 
     return value
@@ -138,29 +138,29 @@ def _read_table(directory: Path, name: str, model: type[T]) -> list[T]:
             headers = reader.fieldnames or []
             if set(headers) != expected or len(headers) != len(expected):
                 raise DataValidationError(
-                    f"{path.name}: cabeçalho inválido; campos esperados: "
+                    f"{path.name}: invalid header; expected fields: "
                     + ", ".join(sorted(expected))
                 )
             for row in reader:
-                location = f"{path.name}: linha {reader.line_num}"
+                location = f"{path.name}: line {reader.line_num}"
                 if None in row or any(value is None for value in row.values()):
-                    raise DataValidationError(f"{location}: quantidade inválida de colunas")
+                    raise DataValidationError(f"{location}: invalid number of columns")
                 converted = {}
                 for field, value in row.items():
                     try:
                         converted[field] = _convert(field, value)
                     except (ValueError, InvalidOperation):
-                        # Não incluir conteúdo das células: pode conter dados pessoais.
+                        # Do not include cell contents: they may contain personal data.
                         raise DataValidationError(
-                            f"{location}: valor inválido no campo {field}"
+                            f"{location}: invalid value in field {field}"
                         ) from None
                 records.append(model(**converted))
     except (OSError, UnicodeError, csv.Error) as error:
         raise DataValidationError(
-            f"{path.name}: não foi possível ler o CSV ({type(error).__name__})"
+            f"{path.name}: could not read CSV ({type(error).__name__})"
         ) from None
     if not records:
-        raise DataValidationError(f"{path.name}: tabela vazia")
+        raise DataValidationError(f"{path.name}: empty table")
     return records
 
 
@@ -169,7 +169,7 @@ def _index(records: list[T], key: str, table: str) -> dict[int, T]:
     for record in records:
         identity = getattr(record, key)
         if identity in indexed:
-            raise DataValidationError(f"{table}.csv: chave duplicada no campo {key}")
+            raise DataValidationError(f"{table}.csv: duplicate key in field {key}")
         indexed[identity] = record
     return indexed
 
@@ -178,12 +178,12 @@ def _check_references(records: Iterable[T], field: str, target: dict, table: str
     for record in records:
         if getattr(record, field) not in target:
             raise DataValidationError(
-                f"{table}.csv: referência inexistente no campo {field}"
+                f"{table}.csv: missing reference in field {field}"
             )
 
 
 def load_dataset(directory: Path = DEFAULT_DATA_DIR) -> Dataset:
-    """Carrega e valida todas as tabelas antes de disponibilizar o conjunto."""
+    """Load and validate every table before returning the dataset."""
     directory = Path(directory)
     categories = _index(
         _read_table(directory, "categories", Category), "category_id", "categories"
@@ -209,16 +209,16 @@ def load_dataset(directory: Path = DEFAULT_DATA_DIR) -> Dataset:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Valida os dados da Empório da Música.")
+    parser = argparse.ArgumentParser(description="Validate the Empório da Música dataset.")
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     args = parser.parse_args()
     try:
         dataset = load_dataset(args.data_dir)
     except DataValidationError as error:
-        parser.exit(1, f"Erro de validação: {error}\n")
-    print("Dados carregados e validados:")
+        parser.exit(1, f"Validation error: {error}\n")
+    print("Dataset loaded and validated:")
     for field in fields(dataset):
-        print(f"  {field.name}: {len(getattr(dataset, field.name))} registros")
+        print(f"  {field.name}: {len(getattr(dataset, field.name))} records")
 
 
 if __name__ == "__main__":

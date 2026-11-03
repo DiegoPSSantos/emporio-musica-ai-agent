@@ -17,43 +17,43 @@ class PolicySearchTests(unittest.TestCase):
 
     def test_common_questions_retrieve_expected_section_first(self):
         cases = {
-            "Que horas vocês abrem aos sábados?": "2",
-            "Me arrependi da compra, posso devolver?": "4",
-            "Vocês aceitam PIX?": "3",
-            "Como parcelar em 12 vezes?": "3",
-            "Qual o endereço da loja?": "1",
-            "Como são as entregas?": "5",
-            "Quais promoções e descontos existem?": "6",
-            "Como funciona a privacidade e proteção de dados?": "9",
+            "What are your Saturday opening hours?": "2",
+            "Can I return an online purchase?": "4",
+            "Do you accept PIX?": "3",
+            "Can I pay in 12 installments?": "3",
+            "What is the store address?": "1",
+            "How does delivery work?": "5",
+            "What promotions and discounts are available?": "6",
+            "How do privacy and data protection work?": "9",
         }
         for query, expected in cases.items():
             with self.subTest(query=query):
                 self.assertEqual(self.store.search(query)[0].section.section_id, expected)
 
     def test_returns_whole_return_policy_including_exclusions(self):
-        section = self.store.search("devolver")[0].section
+        section = self.store.search("return")[0].section
         self.assertEqual(section.pages, (4,))
         self.assertEqual(section.source, "politicas_da_loja.pdf")
-        self.assertIn("4.1 Direito de Arrependimento", section.text)
-        self.assertIn("4.4 Itens Não Elegíveis", section.text)
-        self.assertIn('"venda final"', section.text)
+        self.assertIn("4.1 Right of Withdrawal", section.text)
+        self.assertIn("4.4 Items Not Eligible", section.text)
+        self.assertIn('final sale', section.text)
 
     def test_sections_spanning_pages_keep_all_references_and_text(self):
         shipping = self.store.get_section("5")
         self.assertEqual(shipping.pages, (4, 5))
-        self.assertIn("5.1 Entregas", shipping.text)
-        self.assertIn("5.3 Código de Rastreamento", shipping.text)
+        self.assertIn("5.1 Delivery", shipping.text)
+        self.assertIn("5.3 Tracking Code", shipping.text)
         privacy = self.store.get_section("9")
         self.assertEqual(privacy.pages, (7, 8))
-        self.assertIn("exclusivamente para:", privacy.text)
-        self.assertIn("consentimento explícito", privacy.text)
+        self.assertIn("exclusively for:", privacy.text)
+        self.assertIn("explicit consent", privacy.text)
 
     def test_warranty_question_keeps_both_relevant_sections(self):
-        matches = self.store.search("defeito garantia")
+        matches = self.store.search("defect warranty")
         self.assertTrue({"4", "8"}.issubset({match.section.section_id for match in matches}))
 
     def test_empty_generic_and_unrelated_queries_have_no_fallback(self):
-        for query in ("", "!!!", "por favor", "Qual é a capital da França?"):
+        for query in ("", "!!!", "please", "What is the capital of France?"):
             with self.subTest(query=query):
                 self.assertEqual(self.store.search(query), [])
 
@@ -79,6 +79,8 @@ class PolicyIndexTests(unittest.TestCase):
         self.directory = Path(temporary.name)
         self.index_path = self.directory / DEFAULT_POLICY_INDEX.name
         shutil.copyfile(DEFAULT_POLICY_INDEX, self.index_path)
+        shutil.copyfile(DEFAULT_POLICY_INDEX.parent / "politicas_da_loja.json",
+                        self.directory / "politicas_da_loja.json")
         self.source = self.directory / "politicas_da_loja.pdf"
         shutil.copyfile(DEFAULT_POLICY_INDEX.parent / self.source.name, self.source)
 
@@ -93,12 +95,23 @@ class PolicyIndexTests(unittest.TestCase):
 
     def test_changed_pdf_blocks_use_of_old_index(self):
         self.source.write_bytes(self.source.read_bytes() + b"\n")
-        with self.assertRaisesRegex(PolicyIndexError, "PDF mudou"):
+        with self.assertRaisesRegex(PolicyIndexError, "PDF changed"):
             load_policies(self.index_path)
 
     def test_missing_pdf_is_reported(self):
         self.source.unlink()
         with self.assertRaises(PolicyIndexError):
+            load_policies(self.index_path)
+
+    def test_modified_source_index_requires_translation_review(self):
+        original = self.directory / "politicas_da_loja.json"
+        original.write_bytes(original.read_bytes() + b"\n")
+        with self.assertRaisesRegex(PolicyIndexError, "source index changed"):
+            load_policies(self.index_path)
+
+    def test_translation_cannot_omit_a_source_section(self):
+        self.rewrite_index(lambda index: index["sections"].pop())
+        with self.assertRaisesRegex(PolicyIndexError, "every source section"):
             load_policies(self.index_path)
 
     def test_invalid_json_and_root_are_reported(self):
@@ -128,11 +141,12 @@ class PolicyIndexTests(unittest.TestCase):
 
 
 class ExtractionTests(unittest.TestCase):
+    """Fixtures retain the original Portuguese PDF headings for parser coverage."""
     def test_indented_numbered_lists_do_not_create_sections(self):
-        pages = ["Capa", "1. Atendimento\nRegras:\n    1. Saudação\n    2. Consulta\nPágina 2"]
+        pages = ["Capa", "1. Atendimento\nRegras:\n    1. Saudação\n    2. Lookup\nPágina 2"]
         sections = extract_sections(pages)
         self.assertEqual(len(sections), 1)
-        self.assertIn("2. Consulta", sections[0]["text"])
+        self.assertIn("2. Lookup", sections[0]["text"])
         self.assertNotIn("Página 2", sections[0]["text"])
         self.assertEqual(sections[0]["pages"], [2])
 
@@ -162,17 +176,17 @@ class PolicyCliTests(unittest.TestCase):
         )
 
     def test_search_prints_source_and_page_without_generating_an_answer(self):
-        result = self.run_cli("search", "posso devolver?", "--limit", "1")
+        result = self.run_cli("search", "can I return it?", "--limit", "1")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("seção 4 | páginas 4", result.stdout)
-        self.assertIn("4.4 Itens Não Elegíveis", result.stdout)
+        self.assertIn("section 4 | pages 4", result.stdout)
+        self.assertIn("4.4 Items Not Eligible", result.stdout)
 
     def test_missing_section_and_unrelated_question_have_no_result(self):
-        for arguments in (("show", "999"), ("search", "capital da França")):
+        for arguments in (("show", "999"), ("search", "capital of France")):
             with self.subTest(arguments=arguments):
                 result = self.run_cli(*arguments)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("Nenhuma seção encontrada", result.stdout)
+                self.assertIn("No section found", result.stdout)
 
     def test_invalid_limit_returns_an_error_without_traceback(self):
         result = self.run_cli("search", "PIX", "--limit", "0")

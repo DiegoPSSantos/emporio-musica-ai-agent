@@ -1,4 +1,4 @@
-"""Consultas de recuperação quando o modelo omite uma ferramenta necessária."""
+"""Recover a source lookup when the model omits a required tool."""
 
 import re
 from typing import Optional
@@ -7,27 +7,28 @@ from emporio.text import normalize_text
 
 
 POLICY_TOPICS = (
-    ({"horario", "horarios", "horas", "funcionamento", "sabado", "abre", "abrem"}, "horario funcionamento"),
-    ({"devolver", "devolucao", "devolucoes", "arrependi", "arrependimento", "troca", "trocas", "trocar", "reembolso"}, "troca devolucao arrependimento"),
-    ({"desconto", "descontos", "promocao", "promocoes", "acumular", "acumulado", "acumulados"}, "promocao desconto cumulatividade"),
-    ({"pix", "pagamento", "pagamentos", "pagar", "parcelar", "parcelas", "boleto", "credito", "debito"}, "pagamento pix parcelamento"),
-    ({"frete", "entrega", "entregas", "envio", "envios"}, "frete entrega"),
-    ({"garantia", "garantias", "defeito", "defeitos"}, "garantia defeito"),
-    ({"endereco", "localizacao", "contato", "telefone", "whatsapp"}, "endereco telefone whatsapp"),
-    ({"privacidade", "lgpd", "exclusao", "consentimento"}, "privacidade dados"),
+    ({"hours", "opening", "saturday", "open", "horario", "horas", "sabado", "abre"}, "opening hours"),
+    ({"return", "returns", "withdrawal", "exchange", "refund", "devolver", "devolucao", "arrependi", "troca", "reembolso"}, "returns exchanges withdrawal"),
+    ({"discount", "discounts", "promotion", "promotions", "combine", "combined", "stack", "stacked", "desconto", "promocao", "acumulado", "acumula"}, "promotion discount stacking"),
+    ({"pix", "payment", "payments", "pay", "installments", "credit", "debit", "pagamento", "pagar", "parcelar", "boleto"}, "payment pix installments"),
+    ({"shipping", "delivery", "deliveries", "frete", "entrega", "envio"}, "shipping delivery"),
+    ({"warranty", "warranties", "defect", "defects", "garantia", "defeito"}, "warranty defects"),
+    ({"address", "location", "contact", "phone", "whatsapp", "endereco", "telefone"}, "address phone whatsapp"),
+    ({"privacy", "deletion", "consent", "lgpd", "privacidade", "exclusao"}, "privacy data"),
 )
-ACCESSORIES = {"cabo", "cabos", "palheta", "palhetas", "pedal", "pedais", "case", "cases", "amplificador", "amplificadores"}
+ACCESSORIES = {"cable", "cables", "pick", "picks", "pedal", "pedals", "case", "cases", "amplifier", "amplifiers", "accessories",
+               "cabo", "cabos", "palheta", "palhetas", "pedais", "amplificador", "amplificadores"}
 
 
 def fallback_lookup(text: str) -> Optional[dict]:
-    """Seleciona apenas leituras; não responde a pergunta nem concede acesso.
+    """Select only reads; do not answer the question or grant access.
 
-    Este vocabulário pequeno cobre tópicos explícitos da loja. Não é uma
-    classificação semântica geral e só é usado se o modelo não pedir consulta.
+    This small bilingual vocabulary covers explicit store topics. It is not a
+    general semantic classifier and is used only if the model requests no lookup.
     """
     normalized = normalize_text(text)
     words = set(normalized.split())
-    order = re.search(r"\bpedido\s+(?:(?:numero|no|n|id)\s+)?(\d+)\b", normalized)
+    order = re.search(r"\b(?:order|pedido)\s+(?:(?:number|numero|no|n|id)\s+)?(\d+)\b", normalized)
     if order:
         return {"name": "get_order", "arguments": {"order_id": int(order.group(1))}}
     if words & ACCESSORIES:

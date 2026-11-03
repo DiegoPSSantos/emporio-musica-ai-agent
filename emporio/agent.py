@@ -1,4 +1,4 @@
-"""Conversa no terminal com modelo local e ferramentas de consulta controladas."""
+"""Terminal conversation using a local model and controlled query tools."""
 
 import argparse
 import json
@@ -16,10 +16,11 @@ from emporio.routing import fallback_lookup
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "system.txt").read_text(encoding="utf-8")
 SMALL_TALK = {"oi", "ola", "bom dia", "boa tarde", "boa noite", "obrigado", "obrigada",
-              "muito obrigado", "muito obrigada", "tchau", "ate logo"}
+              "muito obrigado", "muito obrigada", "tchau", "ate logo",
+              "hi", "hello", "good morning", "good afternoon", "good evening", "thanks", "thank you", "goodbye", "bye"}
 SCOPE_RESPONSE = (
-    "Meu atendimento é voltado à Empório da Música. Posso ajudar com instrumentos "
-    "musicais, preços, estoque, pedidos e políticas da loja. Qual dessas informações você precisa?"
+    "I provide customer support for Empório da Música. I can help with musical "
+    "instruments, prices, stock, orders and store policies. Which of these can I help you with?"
 )
 
 
@@ -37,7 +38,7 @@ class Agent:
 
     def ask(self, text: str) -> str:
         if not isinstance(text, str) or not text.strip() or len(text) > 2000:
-            raise ValueError("Envie uma mensagem entre 1 e 2000 caracteres.")
+            raise ValueError("Enter a message between 1 and 2000 characters.")
         user_message = {"role": "user", "content": text.strip()}
         messages = [{"role": "system", "content": SYSTEM_PROMPT}, *self.history, user_message]
         self.last_tool_calls = []
@@ -48,18 +49,18 @@ class Agent:
             message = self.client.chat(messages, TOOL_SCHEMAS)
             calls = message.get("tool_calls") or []
             if not isinstance(calls, list):
-                raise ModelError("O modelo retornou chamadas de ferramentas inválidas.")
+                raise ModelError("The model returned invalid tool calls.")
             if not calls and last_result is None:
                 lookup = fallback_lookup(text)
                 if lookup is not None:
-                    # A aplicação pede a leitura omitida; o rascunho sem fonte é descartado.
+                    # The application requests the missing lookup and discards the ungrounded draft.
                     calls = [{"function": lookup}]
                     message = {"role": "assistant", "content": "", "tool_calls": calls}
             if not calls:
                 answer = message.get("content", "").strip()
                 if not answer:
-                    raise ModelError("O modelo não retornou uma resposta.")
-                # Não entregar afirmações de atendimento sem nenhuma consulta no turno.
+                    raise ModelError("The model returned no answer.")
+                # Do not deliver store-related claims without a lookup in the current turn.
                 if last_result is None and normalize_text(text) not in SMALL_TALK:
                     answer = SCOPE_RESPONSE
                 elif last_result is not None and "error" in last_result:
@@ -67,24 +68,24 @@ class Agent:
                     if code in {"session_required", "order_not_found"}:
                         answer = last_result["error"]["message"]
                     else:
-                        answer = "Não consegui concluir a consulta. Pode reformular a pergunta ou procurar a equipe da loja?"
+                        answer = "I could not complete the lookup. Could you rephrase your question or contact the store team?"
                 if references:
                     labels = []
                     for section_id, pages in sorted(references, key=lambda item: int(item[0])):
-                        page_label = "página" if len(pages) == 1 else "páginas"
-                        labels.append(f"manual, seção {section_id}, {page_label} {', '.join(map(str, pages))}")
-                    answer += "\n\nFontes consultadas: " + "; ".join(labels) + "."
+                        page_label = "page" if len(pages) == 1 else "pages"
+                        labels.append(f"manual, section {section_id}, {page_label} {', '.join(map(str, pages))}")
+                    answer += "\n\nSources consulted: " + "; ".join(labels) + "."
                 self.history = [*self.history, user_message, {"role": "assistant", "content": answer}][-6:]
                 while sum(len(item["content"]) for item in self.history) > 4000:
                     del self.history[:2]
                 return answer
             if used + len(calls) > 8:
-                raise ModelError("O modelo excedeu o limite de consultas. Reformule a pergunta.")
-            # Validar o lote antes de executar qualquer chamada.
+                raise ModelError("The model exceeded the lookup limit. Please rephrase your question.")
+            # Validate the entire batch before executing any call.
             for call in calls:
                 function = call.get("function") if isinstance(call, dict) else None
                 if not isinstance(function, dict) or not isinstance(function.get("name"), str):
-                    raise ModelError("O modelo retornou uma chamada malformada.")
+                    raise ModelError("The model returned a malformed tool call.")
             messages.append(message)
             for call in calls:
                 function = call["function"]
@@ -102,53 +103,53 @@ class Agent:
                 messages.append({"role": "tool", "tool_name": name,
                                  "content": json.dumps(result, ensure_ascii=False)})
                 used += 1
-        raise ModelError("O modelo não concluiu a resposta no limite de etapas. Reformule a pergunta.")
+        raise ModelError("The model did not finish within the step limit. Please rephrase your question.")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Conversa com o agente local da Empório da Música.")
+    parser = argparse.ArgumentParser(description="Chat with the local Empório da Música support agent.")
     parser.add_argument("--model", default=os.environ.get("OLLAMA_MODEL", "qwen3:4b-instruct"))
     parser.add_argument("--url", default=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"))
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
-    parser.add_argument("--customer-id", type=int, help="Simula uma sessão identificada. Não é autenticação de produção.")
-    parser.add_argument("--trace", action="store_true", help="Mostra os nomes das ferramentas chamadas.")
-    parser.add_argument("--message", help="Executa uma única mensagem, sem modo interativo.")
+    parser.add_argument("--customer-id", type=int, help="Simulate an identified session. This is not production authentication.")
+    parser.add_argument("--trace", action="store_true", help="Show the names of invoked tools.")
+    parser.add_argument("--message", help="Run one message without interactive mode.")
     args = parser.parse_args()
     try:
         data = load_dataset(args.data_dir)
-        load_policies(args.data_dir / "politicas_da_loja.json")
+        load_policies(args.data_dir / "policies.en.json")
         if args.customer_id is not None and args.customer_id not in data.customers:
-            raise ValueError("Cliente de demonstração não encontrado nos dados.")
+            raise ValueError("Demo customer not found in the dataset.")
         client = OllamaClient(args.model, args.url)
-        trace = (lambda name: print(f"[consulta] {name}", flush=True)) if args.trace else None
+        trace = (lambda name: print(f"[lookup] {name}", flush=True)) if args.trace else None
         agent = Agent(client, Toolbox(args.data_dir, args.customer_id), trace)
     except (ValueError, DataValidationError, PolicyIndexError) as error:
-        parser.exit(1, f"Erro de configuração: {error}\n")
+        parser.exit(1, f"Configuration error: {error}\n")
     if args.message is not None:
         try:
             print(agent.ask(args.message))
         except (ModelError, ValueError) as error:
-            parser.exit(1, f"Erro: {error}\n")
+            parser.exit(1, f"Error: {error}\n")
         return
-    print(f"Empório da Música — modelo local: {args.model}")
-    print("Digite /sair para encerrar ou /limpar para iniciar outra conversa.")
+    print(f"Empório da Música — local model: {args.model}")
+    print("Type /exit to quit or /reset to start a new conversation.")
     if args.customer_id is not None:
-        print("Sessão de cliente simulada para demonstração; não é autenticação de produção.")
+        print("Demo customer session; this is not production authentication.")
     while True:
         try:
-            text = input("Você: ").strip()
-            if text == "/sair":
+            text = input("You: ").strip()
+            if text == "/exit":
                 break
-            if text == "/limpar":
+            if text == "/reset":
                 agent.reset()
-                print("Histórico da conversa limpo.")
+                print("Conversation history cleared.")
                 continue
             if not text:
                 continue
             try:
-                print("Assistente:", agent.ask(text))
+                print("Assistant:", agent.ask(text))
             except (ModelError, ValueError) as error:
-                print(f"Erro: {error}")
+                print(f"Error: {error}")
         except (EOFError, KeyboardInterrupt):
             print()
             break

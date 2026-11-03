@@ -1,4 +1,4 @@
-"""Busca local de seções do manual com referências à fonte, sem gerar respostas."""
+"""Retrieve manual sections locally with source references, without generating answers."""
 
 import argparse
 import hashlib
@@ -13,26 +13,32 @@ from emporio.data import DEFAULT_DATA_DIR
 from emporio.text import normalize_text
 
 
-DEFAULT_POLICY_INDEX = DEFAULT_DATA_DIR / "politicas_da_loja.json"
+DEFAULT_POLICY_INDEX = DEFAULT_DATA_DIR / "policies.en.json"
 STOP_WORDS = set(
     "a as o os um uma uns umas de da das do dos em na nas no nos para por com "
     "e ou que qual quais como quanto quantos quando eu meu minha meus minhas "
     "voce voces sua suas seu seus me se ao aos pela pelo quero gostaria saber "
-    "posso pode podem preciso tem ter eh e esta estao loja favor".split()
+    "posso pode podem preciso tem ter eh e esta estao loja favor "
+    "the a an and or of to for in on at by with from is are am be been "
+    "i my me we our you your can could may would please what which how when "
+    "do does did this that it its store shop have has want need tell about".split()
 )
 SYNONYM_GROUPS = (
-    ("horario", "horarios", "horas", "abre", "abrem", "abrir", "fecha", "fecham"),
-    ("sabado", "sabados"),
-    ("domingo", "domingos"),
-    ("pagamento", "pagamentos", "pagar", "aceitam"),
-    ("parcelamento", "parcelar", "parcelas", "parcela", "vezes"),
-    ("devolucao", "devolucoes", "devolver", "devolvido", "devolvida"),
-    ("troca", "trocas", "trocar"),
-    ("entrega", "entregas", "entregar", "envio", "envios"),
-    ("garantia", "garantias"),
-    ("desconto", "descontos"),
-    ("promocao", "promocoes", "promocional", "promocionais"),
-    ("endereco", "localizacao"),
+    ("horario", "horarios", "horas", "abre", "abrem", "abrir", "fecha", "fecham", "hours", "opening", "open", "schedule"),
+    ("sabado", "sabados", "saturday", "saturdays"),
+    ("domingo", "domingos", "sunday", "sundays"),
+    ("pagamento", "pagamentos", "pagar", "aceitam", "payment", "payments", "pay", "accept"),
+    ("parcelamento", "parcelar", "parcelas", "parcela", "vezes", "installment", "installments"),
+    ("devolucao", "devolucoes", "devolver", "devolvido", "devolvida", "return", "returns", "withdrawal", "arrependimento", "arrependi"),
+    ("troca", "trocas", "trocar", "exchange", "exchanges"),
+    ("entrega", "entregas", "entregar", "envio", "envios", "delivery", "deliveries", "shipping", "frete"),
+    ("garantia", "garantias", "warranty", "warranties"),
+    ("desconto", "descontos", "discount", "discounts"),
+    ("promocao", "promocoes", "promocional", "promocionais", "promotion", "promotions", "promotional"),
+    ("endereco", "localizacao", "address", "location"),
+    ("defeito", "defeitos", "defect", "defects"),
+    ("privacidade", "privacy"),
+    ("dados", "data"),
 )
 SYNONYMS = {word: group[0] for group in SYNONYM_GROUPS for word in group}
 
@@ -45,7 +51,7 @@ def _tokens(text: str) -> list[str]:
 
 
 class PolicyIndexError(ValueError):
-    """O índice não pode ser usado ou precisa ser regenerado."""
+    """The index cannot be used or must be regenerated."""
 
 
 @dataclass(frozen=True)
@@ -67,7 +73,7 @@ class PolicyMatch:
 class PolicyStore:
     def __init__(self, sections: tuple[PolicySection, ...]):
         if not sections:
-            raise PolicyIndexError("O índice não contém seções.")
+            raise PolicyIndexError("The index contains no sections.")
         self.sections = sections
         self._counts = [Counter(_tokens(section.text)) for section in sections]
         self._average_length = sum(sum(count.values()) for count in self._counts) / len(sections)
@@ -78,9 +84,9 @@ class PolicyStore:
         return next((section for section in self.sections if section.section_id == section_id), None)
 
     def search(self, query: str, limit: int = 3) -> list[PolicyMatch]:
-        """Ranking BM25 por termos; a pontuação não é uma medida de confiança."""
+        """Rank terms with BM25; the score is not a confidence measure."""
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 10:
-            raise ValueError("O limite deve ser um inteiro entre 1 e 10.")
+            raise ValueError("Limit must be an integer between 1 and 10.")
         terms = sorted(set(_tokens(query)))
         if not terms or not self._average_length:
             return []
@@ -106,54 +112,72 @@ class PolicyStore:
 
 
 def load_policies(index_path: Path = DEFAULT_POLICY_INDEX) -> PolicyStore:
-    """Valida o índice e a assinatura do PDF antes de permitir consultas."""
+    """Validate the index and PDF signature before allowing queries."""
     index_path = Path(index_path)
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
         if not isinstance(index, dict) or index.get("schema_version") != 1:
-            raise PolicyIndexError("Formato ou versão de índice inválido.")
+            raise PolicyIndexError("Invalid index format or version.")
         source = index.get("source")
         if not isinstance(source, str) or not source or Path(source).name != source:
-            raise PolicyIndexError("Nome de arquivo fonte inválido.")
+            raise PolicyIndexError("Invalid source filename.")
         digest = hashlib.sha256((index_path.parent / source).read_bytes()).hexdigest()
         if digest != index.get("source_sha256"):
-            raise PolicyIndexError("O PDF mudou; regenere o índice de políticas antes de consultar.")
+            raise PolicyIndexError("The PDF changed; rebuild the policy index before querying it.")
+        if index.get("language") == "en":
+            original_name = index.get("translation_of", "")
+            if not original_name or Path(original_name).name != original_name:
+                raise PolicyIndexError("Invalid translation source filename.")
+            original_bytes = (index_path.parent / original_name).read_bytes()
+            if hashlib.sha256(original_bytes).hexdigest() != index.get("translation_source_sha256"):
+                raise PolicyIndexError("The source index changed; review and update the English reference translation.")
+            original = json.loads(original_bytes)
+            if not isinstance(original, dict) or not isinstance(original.get("sections"), list):
+                raise PolicyIndexError("Invalid translation source index.")
+            translated = index.get("sections")
+            if not isinstance(translated, list) or len(translated) != len(original["sections"]):
+                raise PolicyIndexError("The translation must cover every source section.")
+            for source_section, translation in zip(original["sections"], translated):
+                if not isinstance(source_section, dict) or not isinstance(translation, dict) or any(
+                    translation.get(key) != source_section.get(key) for key in ("section_id", "pages")
+                ):
+                    raise PolicyIndexError("Translation section or page references do not match the source.")
         raw_sections = index.get("sections")
         if not isinstance(raw_sections, list) or not raw_sections:
-            raise PolicyIndexError("O índice não contém seções.")
+            raise PolicyIndexError("The index contains no sections.")
         sections = []
         for position, item in enumerate(raw_sections, start=1):
             if not isinstance(item, dict) or item.get("section_id") != str(position):
-                raise PolicyIndexError("Identificação ou ordem de seções inválida.")
+                raise PolicyIndexError("Invalid section identifiers or ordering.")
             if not all(isinstance(item.get(key), str) and item[key].strip() for key in ("title", "text")):
-                raise PolicyIndexError("Título ou texto de seção inválido.")
+                raise PolicyIndexError("Invalid section title or text.")
             anchors = item.get("anchors")
             if not isinstance(anchors, list) or not all(
                 isinstance(anchor, str) and anchor.strip() for anchor in anchors
             ):
-                raise PolicyIndexError("Títulos ou rótulos de busca inválidos.")
+                raise PolicyIndexError("Invalid search headings or labels.")
             pages = item.get("pages")
             if not isinstance(pages, list) or not pages or any(
                 type(page) is not int or page < 1 for page in pages
             ) or pages != sorted(set(pages)):
-                raise PolicyIndexError("Referências de páginas inválidas.")
+                raise PolicyIndexError("Invalid page references.")
             sections.append(PolicySection(
                 item["section_id"], item["title"], tuple(pages), item["text"], source, tuple(anchors)
             ))
         return PolicyStore(tuple(sections))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise PolicyIndexError(f"Não foi possível ler o índice ou o PDF ({type(error).__name__}).") from None
+        raise PolicyIndexError(f"Could not read the index or PDF ({type(error).__name__}).") from None
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Recupera trechos do manual da loja.")
+    parser = argparse.ArgumentParser(description="Retrieve passages from the store manual.")
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--index", type=Path, default=DEFAULT_POLICY_INDEX)
     commands = parser.add_subparsers(dest="command", required=True)
-    search = commands.add_parser("search", parents=[common], help="Busca seções por palavras e sinônimos.")
+    search = commands.add_parser("search", parents=[common], help="Search sections by terms and synonyms.")
     search.add_argument("query")
     search.add_argument("--limit", type=int, default=3)
-    show = commands.add_parser("show", parents=[common], help="Mostra uma seção completa pelo número.")
+    show = commands.add_parser("show", parents=[common], help="Show a complete section by number.")
     show.add_argument("section_id")
     args = parser.parse_args()
     try:
@@ -164,12 +188,12 @@ def main() -> None:
         else:
             sections = [match.section for match in store.search(args.query, args.limit)]
     except (PolicyIndexError, ValueError) as error:
-        parser.exit(1, f"Erro na consulta de políticas: {error}\n")
+        parser.exit(1, f"Policy query error: {error}\n")
     if not sections:
-        print("Nenhuma seção encontrada. Reformule a busca ou consulte a equipe da loja.")
+        print("No section found. Rephrase the query or contact the store team.")
     for section in sections:
         pages = ", ".join(map(str, section.pages))
-        print(f"Fonte: {section.source} | seção {section.section_id} | páginas {pages}")
+        print(f"Source: {section.source} | section {section.section_id} | pages {pages}")
         print(section.text)
         print()
 

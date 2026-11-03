@@ -18,14 +18,14 @@ class CatalogTests(unittest.TestCase):
             price_brl=Decimal("100"),
             name="Violão Yamaha Nylon",
             category_id=5,
-            description="Instrumento para estudo",
+            description="Instrument for students",
             stock_quantity=2,
             status="active",
             specs={"strings": "nylon"},
             created_at=date(2025, 1, 1),
         )
         self.data = Dataset(
-            categories={5: Category(5, "Violões", "Violões clássicos e acústicos")},
+            categories={5: Category(5, "Violões", "Classical and acoustic guitars")},
             customers={},
             products={1: self.product},
             orders={},
@@ -97,9 +97,9 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(self.catalog.get_product(1).price_brl, Decimal("80.00"))
 
     def test_equal_discounts_use_lowest_promotion_id(self):
-        self.add_promotion(9, description="Segunda")
-        self.add_promotion(1, description="Primeira")
-        self.assertEqual(self.catalog.get_product(1).promotion_description, "Primeira")
+        self.add_promotion(9, description="Second")
+        self.add_promotion(1, description="First")
+        self.assertEqual(self.catalog.get_product(1).promotion_description, "First")
 
     def test_unavailable_product_does_not_offer_discount(self):
         self.add_promotion()
@@ -129,8 +129,8 @@ class CatalogTests(unittest.TestCase):
         )), 1)
 
     def test_results_are_sorted_by_final_price_name_and_id(self):
-        self.data.products[2] = replace(self.product, product_id=2, name="Aço", price_brl=Decimal("80"))
-        self.data.products[3] = replace(self.product, product_id=3, name="Aço", price_brl=Decimal("80"))
+        self.data.products[2] = replace(self.product, product_id=2, name="Acoustic", price_brl=Decimal("80"))
+        self.data.products[3] = replace(self.product, product_id=3, name="Acoustic", price_brl=Decimal("80"))
         self.assertEqual(
             [offer.product.product_id for offer in self.catalog.search_products()], [2, 3, 1]
         )
@@ -143,7 +143,7 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.catalog.get_product(999, "credit")
         with self.assertRaises(ValueError):
-            self.catalog.search_products(query="não existe", payment_method="credit")
+            self.catalog.search_products(query="does not exist", payment_method="credit")
 
     def test_invalid_price_limits_are_rejected(self):
         for value in (Decimal("-1"), Decimal("NaN"), Decimal("Infinity")):
@@ -177,28 +177,28 @@ class CatalogCliTests(unittest.TestCase):
     def test_search_accepts_decimal_comma_and_displays_promotion(self):
         result = self.run_cli("search", "--query", "Ohana CK-20", "--max-price", "439,20")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("R$ 439,20", result.stdout)
+        self.assertIn("BRL 439.20", result.stdout)
         excluded = self.run_cli("search", "--query", "Ohana CK-20", "--max-price", "439,19")
         self.assertEqual(excluded.returncode, 0, excluded.stderr)
-        self.assertIn("Nenhum produto encontrado", excluded.stdout)
+        self.assertIn("No products match", excluded.stdout)
 
     def test_show_displays_original_discount_and_final_price(self):
         result = self.run_cli("show", "121", "--payment-method", "pix")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("R$ 549,00", result.stdout)
+        self.assertIn("BRL 549.00", result.stdout)
         self.assertIn("20%", result.stdout)
-        self.assertIn("R$ 439,20", result.stdout)
+        self.assertIn("BRL 439.20", result.stdout)
 
     def test_unavailable_product_is_explained_without_final_price(self):
         result = self.run_cli("show", "136")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("descontinuado", result.stdout)
-        self.assertNotIn("Preço final:", result.stdout)
+        self.assertIn("discontinued", result.stdout)
+        self.assertNotIn("Final price:", result.stdout)
 
     def test_missing_product_is_reported(self):
         result = self.run_cli("show", "999999")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Nenhum produto encontrado", result.stdout)
+        self.assertIn("No products match", result.stdout)
 
     def test_invalid_price_is_a_cli_error(self):
         result = self.run_cli("search", "--max-price", "NaN")

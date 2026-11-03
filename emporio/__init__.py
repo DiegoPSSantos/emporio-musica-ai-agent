@@ -1,1 +1,1 @@
-"""Agente de atendimento da Empório da Música."""
+"""Empório da Música customer support agent."""

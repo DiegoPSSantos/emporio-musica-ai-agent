@@ -1,1 +1,1 @@
-"""Ferramentas de preparação dos dados do projeto."""
+"""Project data preparation tools."""

@@ -1,13 +1,13 @@
-# Segredos e configuração local
+# Secrets and local configuration
 .env
 .env.*
 !.env.example
 
-# Ambientes virtuais Python
+# Python virtual environments
 .venv/
 venv/
 
-# Arquivos gerados por Python e ferramentas de desenvolvimento
+# Generated Python and development-tool files
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -20,7 +20,7 @@ build/
 dist/
 *.egg-info/
 
-# Arquivos locais do sistema e editores
+# Local operating-system and editor files
 .DS_Store
 .idea/
 .vscode/

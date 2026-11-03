@@ -1,2 +1,2 @@
-# Usado apenas para regenerar o índice; consultas e testes não exigem este pacote.
+# Only needed to rebuild the source index; queries and tests do not require it.
 pypdf==6.10.0

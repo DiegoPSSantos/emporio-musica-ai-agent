@@ -35,9 +35,9 @@ class FakeClient:
 
 class AgentTests(unittest.TestCase):
     def test_tool_result_is_sent_to_model_before_final_answer(self):
-        client = FakeClient([call("get_product", {"product_id": 121}), answer("Preço consultado.")])
+        client = FakeClient([call("get_product", {"product_id": 121}), answer("Price retrieved.")])
         agent = Agent(client, Toolbox())
-        self.assertEqual(agent.ask("Qual o preço do produto 121?"), "Preço consultado.")
+        self.assertEqual(agent.ask("What is the price of product 121?"), "Price retrieved.")
         result = json.loads(client.requests[1][-1]["content"])
         self.assertEqual(client.requests[1][-1]["role"], "tool")
         self.assertEqual(result["product"]["price_brl"], "439.20")
@@ -46,37 +46,37 @@ class AgentTests(unittest.TestCase):
     def test_multiple_tool_calls_are_all_completed(self):
         batch = call("get_product", {"product_id": 121})
         batch["tool_calls"].extend(call("get_product", {"product_id": 95})["tool_calls"])
-        client = FakeClient([batch, answer("Comparação.")])
-        Agent(client, Toolbox()).ask("Compare os produtos.")
+        client = FakeClient([batch, answer("Comparison.")])
+        Agent(client, Toolbox()).ask("Compare the products.")
         self.assertEqual([m["role"] for m in client.requests[1][-2:]], ["tool", "tool"])
 
     def test_policy_references_are_added_even_if_model_omits_them(self):
-        client = FakeClient([call("get_policy_section", {"section_id": "2"}), answer("Sábado: 9h às 13h.")])
-        result = Agent(client, Toolbox()).ask("Qual o horário no sábado?")
-        self.assertIn("Fontes consultadas: manual, seção 2, página 2.", result)
+        client = FakeClient([call("get_policy_section", {"section_id": "2"}), answer("Saturday: 9 am to 1 pm.")])
+        result = Agent(client, Toolbox()).ask("What are the Saturday opening hours?")
+        self.assertIn("Sources consulted: manual, section 2, page 2.", result)
 
     def test_invalid_tool_arguments_are_returned_as_error_not_executed(self):
-        client = FakeClient([call("get_order", {"order_id": 1, "customer_id": 3}), answer("Sem acesso.")])
-        Agent(client, Toolbox()).ask("Consulte outro cliente.")
+        client = FakeClient([call("get_order", {"order_id": 1, "customer_id": 3}), answer("No access.")])
+        Agent(client, Toolbox()).ask("Look up another customer.")
         result = json.loads(client.requests[1][-1]["content"])
         self.assertEqual(result["error"]["code"], "invalid_arguments")
 
     def test_failed_turn_does_not_commit_incomplete_history(self):
-        client = FakeClient([answer("Oi!"), ModelError("Indisponível")])
+        client = FakeClient([answer("Hi!"), ModelError("Unavailable")])
         agent = Agent(client, Toolbox())
-        agent.ask("Olá")
+        agent.ask("Hello")
         before = agent.history.copy()
         with self.assertRaises(ModelError):
-            agent.ask("E agora?")
+            agent.ask("What now?")
         self.assertEqual(agent.history, before)
 
     def test_history_keeps_last_three_completed_exchanges_and_can_be_cleared(self):
-        client = FakeClient([answer("Resposta") for _ in range(5)])
+        client = FakeClient([answer("Answer") for _ in range(5)])
         agent = Agent(client, Toolbox())
         for i in range(5):
-            agent.ask(f"Mensagem {i}")
+            agent.ask(f"Message {i}")
         self.assertEqual(len(agent.history), 6)
-        self.assertEqual(agent.history[0]["content"], "Mensagem 2")
+        self.assertEqual(agent.history[0]["content"], "Message 2")
         agent.reset()
         self.assertEqual(agent.history, [])
 
@@ -86,13 +86,13 @@ class AgentTests(unittest.TestCase):
         toolbox = Toolbox()
         with patch.object(toolbox, "execute") as execute:
             with self.assertRaises(ModelError):
-                Agent(FakeClient([batch]), toolbox).ask("Consulta")
+                Agent(FakeClient([batch]), toolbox).ask("Lookup")
             execute.assert_not_called()
 
     def test_repeated_tool_loop_is_bounded(self):
         client = FakeClient([call("list_categories", {}) for _ in range(6)])
         with self.assertRaises(ModelError):
-            Agent(client, Toolbox()).ask("Consulta")
+            Agent(client, Toolbox()).ask("Lookup")
         self.assertEqual(len(client.requests), 6)
 
     def test_malformed_calls_and_empty_answers_are_rejected(self):
@@ -100,7 +100,7 @@ class AgentTests(unittest.TestCase):
                  {"role": "assistant", "tool_calls": [{"function": None}]}]
         for message in cases:
             with self.subTest(message=message), self.assertRaises(ModelError):
-                Agent(FakeClient([message]), Toolbox()).ask("Olá")
+                Agent(FakeClient([message]), Toolbox()).ask("Hello")
 
     def test_blank_and_oversized_user_messages_are_rejected(self):
         agent = Agent(FakeClient([]), Toolbox())
@@ -112,50 +112,50 @@ class AgentTests(unittest.TestCase):
         client = FakeClient([call("get_product", {"product_id": 121}), answer("a" * 2000),
                              call("get_product", {"product_id": 121}), answer("b" * 2000)])
         agent = Agent(client, Toolbox())
-        agent.ask("Primeira")
-        agent.ask("Segunda")
+        agent.ask("First")
+        agent.ask("Second")
         self.assertEqual(len(agent.history), 2)
-        self.assertEqual(agent.history[0]["content"], "Segunda")
+        self.assertEqual(agent.history[0]["content"], "Second")
 
     def test_unsupported_direct_factual_answer_is_replaced_with_scope_response(self):
-        client = FakeClient([answer("Resposta sem consulta: 123 reais.")])
-        result = Agent(client, Toolbox()).ask("Qual o preço do instrumento?")
+        client = FakeClient([answer("Ungrounded answer: BRL 123.")])
+        result = Agent(client, Toolbox()).ask("What is the instrument price?")
         self.assertNotIn("123", result)
-        self.assertIn("Meu atendimento é voltado", result)
+        self.assertIn("I provide customer support", result)
 
     def test_greeting_does_not_require_a_tool(self):
-        self.assertEqual(Agent(FakeClient([answer("Olá!")]), Toolbox()).ask("Bom dia!"), "Olá!")
+        self.assertEqual(Agent(FakeClient([answer("Hello!")]), Toolbox()).ask("Good morning!"), "Hello!")
 
     def test_order_denial_cannot_be_overridden_by_model_answer(self):
-        client = FakeClient([call("get_order", {"order_id": 2}), answer("Pedido entregue.")])
-        result = Agent(client, Toolbox(customer_id=3)).ask("Qual meu pedido?")
-        self.assertNotIn("entregue", result)
-        self.assertIn("não encontrado", result)
+        client = FakeClient([call("get_order", {"order_id": 2}), answer("Order delivered.")])
+        result = Agent(client, Toolbox(customer_id=3)).ask("What is my order?")
+        self.assertNotIn("delivered", result)
+        self.assertIn("not found", result)
 
     def test_policy_followup_without_model_tool_call_gets_grounded_before_answer(self):
-        client = FakeClient([answer("Rascunho sem consulta."), answer("Condições consultadas.")])
+        client = FakeClient([answer("Ungrounded draft."), answer("Conditions retrieved.")])
         agent = Agent(client, Toolbox())
-        result = agent.ask("Posso devolver?")
+        result = agent.ask("Can I return it?")
         self.assertEqual(agent.last_tool_calls, ["search_policies"])
         self.assertEqual(client.requests[1][-1]["role"], "tool")
-        self.assertIn("seção 4", result)
-        self.assertNotIn("Rascunho", result)
+        self.assertIn("section 4", result)
+        self.assertNotIn("Ungrounded", result)
 
     def test_order_followup_fallback_still_enforces_session_ownership(self):
-        client = FakeClient([answer("Sem consulta."), answer("Pedido entregue.")])
+        client = FakeClient([answer("No lookup."), answer("Order delivered.")])
         agent = Agent(client, Toolbox(customer_id=3))
-        result = agent.ask("E o pedido 2?")
+        result = agent.ask("What about order 2?")
         self.assertEqual(agent.last_tool_calls, ["get_order"])
-        self.assertIn("não encontrado", result)
-        self.assertNotIn("entregue", result)
+        self.assertIn("not found", result)
+        self.assertNotIn("delivered", result)
 
 
 class OllamaClientTests(unittest.TestCase):
     def test_http_payload_is_local_non_streaming_and_uses_tools(self):
         client = OllamaClient()
-        raw = json.dumps({"done": True, "message": answer("Olá")}).encode()
+        raw = json.dumps({"done": True, "message": answer("Hello")}).encode()
         with patch.object(client._opener, "open", return_value=io.BytesIO(raw)) as open_request:
-            self.assertEqual(client.chat([], [])["content"], "Olá")
+            self.assertEqual(client.chat([], [])["content"], "Hello")
         request = open_request.call_args[0][0]
         payload = json.loads(request.data)
         self.assertEqual(request.full_url, "http://127.0.0.1:11434/api/chat")
@@ -185,7 +185,7 @@ class OllamaClientTests(unittest.TestCase):
 
     def test_invalid_incomplete_and_truncated_responses_are_rejected(self):
         cases = [b"not json", b"[]", b'{"done": false}',
-                 json.dumps({"done": True, "done_reason": "length", "message": answer("parcial")}).encode()]
+                 json.dumps({"done": True, "done_reason": "length", "message": answer("partial")}).encode()]
         client = OllamaClient()
         for raw in cases:
             with self.subTest(raw=raw):
@@ -195,15 +195,15 @@ class OllamaClientTests(unittest.TestCase):
 
     def test_only_final_content_is_exposed_when_model_emits_thinking_tags(self):
         client = OllamaClient()
-        for content in ("<think>planejamento</think>Resposta final", "planejamento</think>Resposta final"):
+        for content in ("<think>planning</think>Final answer", "planning</think>Final answer"):
             with self.subTest(content=content):
                 raw = json.dumps({"done": True, "message": answer(content)}).encode()
                 with patch.object(client._opener, "open", return_value=io.BytesIO(raw)):
-                    self.assertEqual(client.chat([], [])["content"], "Resposta final")
+                    self.assertEqual(client.chat([], [])["content"], "Final answer")
 
     def test_incomplete_thinking_block_is_not_exposed(self):
         client = OllamaClient()
-        raw = json.dumps({"done": True, "message": answer("<think>incompleto")}).encode()
+        raw = json.dumps({"done": True, "message": answer("<think>incomplete")}).encode()
         with patch.object(client._opener, "open", return_value=io.BytesIO(raw)):
             with self.assertRaises(ModelError):
                 client.chat([], [])
