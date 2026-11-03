@@ -1,336 +1,184 @@
-# Empório da Música — agente de atendimento
+# Empório da Música — Customer Support Agent
 
-Protótipo em Python para o desafio técnico de AI Engineer da Artefact.
-O objetivo é auxiliar o atendimento de uma loja fictícia de instrumentos
-musicais, respondendo com base nos dados da operação e nas políticas fornecidas.
+A Python prototype for Artefact's AI Engineer technical challenge. The agent helps
+customers of a fictional Brazilian musical instrument store by querying its
+catalog, orders and policies. The interface, documentation and agent responses
+are in English. Supplied source files and official product names remain unchanged.
 
-## Estado atual e execução
+## Requirements and setup
 
-A aplicação possui leitura e validação dos dados, consultas ao catálogo,
-recuperação de políticas e conversa pelo terminal com um modelo local via Ollama.
-Cinco conversas reais estão registradas na seção de exemplos abaixo.
+- Python 3.9 or later. Queries and automated tests use only the standard library.
+- [Ollama](https://docs.ollama.com/macos), running locally.
+- The `qwen3:4b-instruct` model, approximately 2.5 GB to download.
 
-### Conversar com o agente
-
-Instale o [Ollama](https://docs.ollama.com/macos). No macOS com Homebrew:
+On macOS with Homebrew:
 
 ```bash
 brew install ollama
 ```
 
-Se o servidor não estiver ativo, execute `ollama serve` em um terminal e mantenha-o
-aberto. Se estiver usando o aplicativo Ollama já aberto, essa etapa pode ser dispensada.
-Em outro terminal, na raiz deste projeto, baixe o modelo e inicie a conversa:
+If the Ollama server is not already running, start it in a terminal and leave it open:
+
+```bash
+ollama serve
+```
+
+In another terminal, from the project root:
 
 ```bash
 ollama pull qwen3:4b-instruct
 python3 -m emporio.agent
 ```
 
-Não há chave de API ou serviço de inferência pago. O download inicial do modelo
-exige internet; as conversas usam o servidor local. Os pesos ficam fora do
-repositório e não são enviados ao GitHub.
+No API key or paid inference service is required. Downloading the model needs an
+internet connection; conversations use the local server. Model weights are stored
+outside the repository and are not uploaded to GitHub.
 
-Use `/sair` para encerrar ou `/limpar` para apagar o histórico da sessão. Para ver
-quais ferramentas são chamadas, ou executar uma mensagem sem modo interativo:
+Use `/exit` to quit and `/reset` to clear the conversation. To show invoked tool
+names or run a single message:
 
 ```bash
 python3 -m emporio.agent --trace
-python3 -m emporio.agent --trace --message "Quais violões disponíveis custam até R$ 1000?"
+python3 -m emporio.agent --trace --message "Which acoustic guitars are available for up to BRL 1,000?"
 ```
 
-O modelo padrão é `qwen3:4b-instruct`; `--model` ou `OLLAMA_MODEL` permitem alterá-lo.
-`--url` ou `OLLAMA_URL` configuram o servidor, cujo padrão é
-`http://127.0.0.1:11434`. O cliente aceita apenas endereços locais, ignora proxies,
-não segue redirecionamentos e rejeita nomes de modelo com indicação `cloud`.
-Outros modelos precisam suportar ferramentas e os parâmetros usados na API.
+`--model` or `OLLAMA_MODEL` overrides the model. `--url` or `OLLAMA_URL` overrides
+the server address, which defaults to `http://127.0.0.1:11434`. The client accepts
+only local HTTP addresses, bypasses proxies, rejects redirects and rejects model
+names containing `cloud`. Alternative models must support tools and the API
+parameters used by the client.
 
-Para demonstrar consultas de pedidos de um cliente identificado:
+### Simulated customer session
 
 ```bash
 python3 -m emporio.agent --customer-id 3 --trace
 ```
 
-Nesse exemplo, o pedido 1 pertence ao cliente da sessão, e o pedido 2 não.
-**`--customer-id` simula uma identidade fornecida pela aplicação; não autentica
-o usuário.** Qualquer pessoa com acesso ao terminal pode escolher esse argumento.
-Uma aplicação publicada precisaria substituir essa simulação por autenticação
-real. Informar um nome, e-mail ou ID no chat não troca o cliente da sessão.
-Sem esse argumento, a consulta de pedidos fica indisponível.
+In the supplied data, order 1 belongs to customer 3, while order 2 does not.
+**This flag simulates an identity supplied by the application; it does not
+authenticate the user.** Anyone with terminal access can choose another value.
+A deployed application would need real authentication. Stating a name, email
+or customer ID in chat cannot change the session identity. Without the flag,
+order lookup is unavailable.
 
-### Consultas independentes e testes
+## Independent queries and tests
 
-As consultas e os testes usam somente a biblioteca padrão do Python, com sintaxe
-compatível com Python 3.9 ou superior. Não é necessário instalar pacotes ou configurar
-chaves de API para executá-los. A extração do PDF usa uma dependência opcional,
-descrita adiante. Na raiz do projeto, execute:
+Validate all six CSV tables:
 
 ```bash
 python3 -m emporio.data
+python3 -m emporio.data --data-dir /path/to/data
 ```
 
-O comando valida os seis CSVs e apresenta a quantidade de registros de cada
-tabela. Em caso de erro, informa o arquivo e o campo ou a estrutura afetada,
-retornando código de saída 1. Não exibe dados pessoais dos clientes.
+The command prints record counts without exposing customer details. Invalid data
+produces an actionable file/field error and exit code 1.
 
-Para carregar outra pasta com os mesmos nomes de arquivos e campos:
-
-```bash
-python3 -m emporio.data --data-dir /caminho/para/data
-```
-
-Para consultar o catálogo pelo terminal:
+Query the catalog:
 
 ```bash
-# Produtos disponíveis da categoria Violões, com preço final até R$ 1.000
-python3 -m emporio.catalog search --category violoes --max-price 1000
-
-# Busca por termos no nome do produto
+python3 -m emporio.catalog search --category "Acoustic guitars" --max-price 1000
 python3 -m emporio.catalog search --query "Takamine GD20"
-
-# Consulta por ID, aplicando as condições de pagamento via PIX
 python3 -m emporio.catalog show 121 --payment-method pix
-
-# Inclui produtos indisponíveis para verificar sua situação
 python3 -m emporio.catalog search --query "Giannini" --include-unavailable
 ```
 
-Os comandos de catálogo também aceitam `--data-dir`. `--max-price` aceita ponto
-ou vírgula decimal, sem separador de milhar. A busca usa o preço final para a
-condição de pagamento selecionada; o limite de preço é inclusivo. `standard`
-(padrão) considera promoções ativas sem presumir pagamento via PIX.
+Catalog commands accept `--data-dir`. Maximum price is inclusive and uses the
+rounded final price for the selected payment method. Decimal points or commas
+are accepted without thousands separators. The default `standard` payment
+condition applies active promotions without assuming PIX. Output uses BRL and
+English number formatting, for example `BRL 439.20`.
 
-Para recuperar trechos das políticas, com página e seção de origem:
+Retrieve English policy sections with references to the original manual:
 
 ```bash
-python3 -m emporio.policies search "Que horas vocês abrem aos sábados?" --limit 1
-python3 -m emporio.policies search "Me arrependi da compra, posso devolver?"
+python3 -m emporio.policies search "What are your Saturday opening hours?" --limit 1
+python3 -m emporio.policies search "Can I return an online purchase?"
 python3 -m emporio.policies show 4
 ```
 
-`search` retorna até três seções completas por padrão; `--limit` aceita de 1 a 10.
-`show` consulta o número de uma seção principal. Não é uma resposta gerada pelo
-agente: o comando mostra o texto extraído do manual. Sem termos correspondentes,
-ele informa que não encontrou uma seção. Ambos aceitam `--index` para indicar
-outro índice, cujo PDF fonte deve estar na mesma pasta.
+These commands display reference text, not a generated answer. `search` returns
+up to three complete sections by default; `--limit` accepts 1–10. `show` uses a
+main section number. Both accept `--index`; the referenced PDF and source index
+must be beside that index. A query with no matching terms reports no result.
 
-Para executar os testes:
+Run the automated suite without Ollama or a model download:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-## Exemplos de conversa
+## Real conversation examples
 
-Os cinco arquivos abaixo registram conversas reais com a aplicação local, com
-duas mensagens de cliente por conversa. As falas não foram reescritas para a
-documentação. Cada registro identifica modelo, commit da aplicação, ferramentas
-acionadas e tempo observado por mensagem.
+Five automatically recorded conversations cover two customer messages each.
+Responses are preserved exactly as returned by the application, including its
+safeguards and references. Each file identifies the model, application commit,
+tools and observed response time.
 
-| Conversa | Foco |
+| Conversation | Focus |
 | --- | --- |
-| [Catálogo e continuação](examples/01_catalogo.md) | Orçamento, estoque e consulta de preço por PIX na continuação |
-| [Promoção e PIX](examples/02_promocao_pix.md) | Preço promocional e regra de não acumulação de descontos |
-| [Políticas](examples/03_politicas.md) | Horário e condições de devolução com referências ao manual |
-| [Pedidos](examples/04_pedidos.md) | Pedido autorizado e tentativa de acesso a outro cliente |
-| [Escopo](examples/05_escopo.md) | Assunto alheio à loja e solicitação de acessórios |
+| [Catalog and follow-up](examples/01_catalog.md) | Budget, availability and a follow-up PIX quote |
+| [Promotions and PIX](examples/02_promotions_pix.md) | Promotional pricing and non-stacking discounts |
+| [Store policies](examples/03_policies.md) | Opening hours and return conditions with references |
+| [Orders](examples/04_orders.md) | Authorized order and attempted access to another customer |
+| [Scope](examples/05_scope.md) | An unrelated topic and a request for accessories |
 
-Para gerar uma nova captura com os mesmos cenários, mantendo o Ollama ativo:
+With Ollama running, reproduce the same English scenarios in a separate directory:
 
 ```bash
-python3 -m scripts.record_examples --output-dir /tmp/emporio-exemplos
+python3 -m scripts.record_examples --output-dir /tmp/emporio-examples
 ```
 
-Para substituir explicitamente os registros versionados, use `--overwrite`.
-`--only 02_promocao_pix`, por exemplo, executa somente essa conversa. O comando
-não avalia automaticamente a correção das respostas: ele preserva o resultado,
-incluindo erros da aplicação se ocorrerem. As saídas podem variar em novas execuções.
-Revise-as antes de versionar; não edite manualmente as falas para aparentar sucesso.
+`--only 02_promotions_pix` runs one scenario. `--overwrite` explicitly replaces
+existing captures. The script records execution errors rather than inventing
+successful replies; it does not grade answer correctness. Outputs may vary across
+runs. Review generated files before committing and do not manually rewrite
+responses to make them look successful.
 
-### Revisão das capturas
+### Review of the English captures
 
-As capturas finais foram executadas sobre o commit da aplicação `24cf425`,
-com dez mensagens de cliente ao todo e sem erros de execução. Os preços e
-estoques apresentados foram conferidos com as consultas do catálogo, e as
-referências das políticas foram comparadas com o índice do manual.
+The five current recordings use application commit `fc561b0` and contain ten
+customer messages, with no execution errors. Prices, stock, source references
+and order ownership were checked against the supplied data and reference manual.
 
-O cenário de promoção demonstra uma situação não trivial: o produto 121 mantém
-o preço promocional de R$ 439,20 no PIX, e a pergunta seguinte recupera do manual
-a regra que impede acumular os descontos. O cenário de pedidos também confirma
-a negativa de acesso a um pedido de outro cliente na sessão simulada.
+| Scenario | Observed result |
+| --- | --- |
+| Catalog and follow-up | Five available options, a partial-list notice and a Yamaha C40 PIX quote of BRL 569.91 |
+| Promotions | Product 121 at BRL 439.20, with an explanation that the promotional discount does not stack with PIX |
+| Policies | Referenced Saturday hours and an English response about online return conditions |
+| Orders | Order 1 retrieved for customer 3; order 2 denied without revealing another customer's details |
+| Scope | The unrelated question receives a scope response; cable availability is checked against the manual |
 
-A primeira captura, ainda no commit `5522a38`, mostrou respostas genéricas em
-perguntas legítimas de continuação. Isso motivou a recuperação de fontes adicionada
-em `24cf425`; os mesmos cenários foram executados novamente após a correção.
+These are observed examples, not a claim of perfect performance. The return answer
+still adds unsolicited defect/warranty guidance and does not enumerate every
+exclusion in section 4.4. Its wording can sound more definitive than a conditional
+policy explanation should. The application has no return-approval or refund tool.
+The recorded text is unchanged, so these limitations remain visible for review.
 
-As falas foram preservadas, inclusive aspectos a melhorar: o catálogo contém a
-palavra em inglês “excellent”, e a resposta de devolução acrescenta orientação
-sobre defeito e garantia que não foi solicitada, além de não listar todas as
-exceções da seção 4.4. Esses pontos mostram a necessidade de melhorar foco e
-completude das respostas; a captura não representa aprovação automática de devolução.
+## Source material and English localization
 
-## Escopo
+`data/` contains the original contents under simplified filenames: `categories.csv`,
+`customers.csv`, `order_items.csv`, `orders.csv`, `products.csv`, `promotions.csv`
+and `politicas_da_loja.pdf`. `.gitattributes` preserves original CSV line endings.
+`politicas_da_loja.json` is the reproducible Portuguese extraction of that PDF.
 
-- Conversar com tom acolhedor, informal e profissional.
-- Consultar o catálogo para informar preços, disponibilidade e promoções.
-- Consultar pedidos, definindo antes como identificar o cliente e restringir o acesso.
-- Consultar o manual para responder sobre horários, pagamentos, entregas e trocas.
-- Reconhecer perguntas fora do escopo e informar quando faltar informação.
-- Usar um modelo de linguagem integrado às consultas, sem inventar dados da loja.
+`policies.en.json` is a separately versioned English reference translation of all
+ten sections. It preserves section identifiers, page references, policy conditions
+and ambiguities. The supplied Portuguese PDF remains authoritative. The loader
+checks both the PDF's SHA-256 and the original extraction's SHA-256, and verifies
+that every section and page reference is covered. A changed source blocks queries
+until the English reference has been reviewed and updated.
 
-## Materiais de referência
+We retain the supplied materials rather than translating them in place so that
+the original evidence, product identities and references remain inspectable.
+English category and promotion labels are mapped at the application boundary;
+original Portuguese category names remain accepted aliases. The model translates
+explanatory product descriptions into English while preserving official names,
+addresses, identifiers and tracking codes. Parser fixtures and lookup vocabularies
+deliberately retain original-language strings where required.
 
-O material recebido contém seis tabelas CSV: `categories`, `customers`,
-`order_items`, `orders`, `products` e `promotions`, além do PDF de políticas
-da loja.
+### Rebuilding the source extraction
 
-Os arquivos estão em `data/`. Os conteúdos originais foram preservados; apenas
-os nomes foram simplificados para `categories.csv`, `customers.csv`,
-`order_items.csv`, `orders.csv`, `products.csv`, `promotions.csv` e
-`politicas_da_loja.pdf`. O índice derivado `politicas_da_loja.json` também está
-versionado, permitindo consultar as políticas sem instalar um leitor de PDF.
-O `.gitattributes` preserva o formato de quebra de linha dos CSVs originais.
-
-
-## Decisões iniciais
-
-### Interface pelo terminal
-
-A primeira interface será uma CLI (interação por texto no terminal). Ela permite
-demonstrar o fluxo de conversa e as consultas com pouca infraestrutura.
-Uma interface web exigiria trabalho adicional de apresentação e comunicação
-entre componentes sem ser necessária para demonstrar o agente neste desafio.
-
-### Implementação incremental
-
-Cada etapa terá uma entrega pequena, validada e registrada em um commit.
-Começaremos pelas consultas aos dados antes da integração com o modelo, para
-conseguir verificar os resultados dessas consultas de forma independente.
-Isso também ajuda a distinguir falhas nos dados de falhas na resposta do modelo.
-
-### Configuração e segredos fora do Git
-
-Chaves de API e configurações locais não serão versionadas. Quando houver uma
-integração que exija configuração, adicionaremos um `.env.example` sem segredos.
-O `.gitignore` inicial também exclui ambientes virtuais e arquivos temporários.
-
-### Leitura em memória com a biblioteca padrão
-
-Os CSVs são lidos com `csv.DictReader` e convertidos em dataclasses, que deixam
-explícitos os campos de cada entidade. As tabelas com chave primária são
-indexadas por ID; os itens de pedido permanecem em uma sequência porque vários
-itens podem pertencer ao mesmo pedido.
-
-O volume fornecido permite carregar tudo em memória. Pandas acrescentaria uma
-dependência sem necessidade de operações analíticas nesta etapa; SQLite seria
-útil para persistência e consultas mais complexas, mas exigiria uma importação
-e manutenção de um banco que ainda não precisamos. Os arquivos são relidos
-a cada chamada a `load_dataset`; não há atualização automática em segundo plano.
-
-### Conversão e validação dos dados
-
-- Valores monetários e descontos usam `Decimal`, evitando aproximações de `float`.
-- IDs e quantidades são inteiros; estoque zero é válido, estoque negativo não.
-- Datas são convertidas para `date`, e especificações para um objeto JSON de textos.
-- Promoções aceitam os indicadores originais `0` e `1`, convertidos em booleanos;
-  descontos devem estar entre 0 e 100.
-- Rastreamento, previsão de entrega e observações vazios tornam-se `None`.
-  Não presumimos que um pedido tenha sido enviado pela presença ou ausência desses campos.
-- Cabeçalhos, número de colunas, campos obrigatórios, chaves primárias duplicadas,
-  tabelas vazias e referências entre tabelas são verificados.
-- O carregamento é interrompido quando há erro. Ignorar linhas inválidas poderia
-  ocultar produtos ou pedidos e produzir respostas incorretas.
-
-As validações conferem a estrutura dos dados, sem decidir elegibilidade para
-devolução, acumulação de promoções ou outras regras de atendimento. Essas regras
-serão implementadas nas consultas. Os status originais são preservados.
-
-O total histórico de um pedido também é preservado: não o recalculamos a partir
-dos preços atuais do catálogo, pois eles não demonstram o preço na data da compra.
-
-Os testes usam `unittest`, disponível no próprio Python. Pytest poderia facilitar
-fixtures mais complexas, mas não é necessário para os cenários desta etapa.
-Eles não exigem Ollama ou download do modelo: a integração HTTP e o fluxo de
-ferramentas são exercitados com respostas simuladas. Isso verifica a aplicação,
-sem comprovar a qualidade das respostas de um modelo real.
-
-### Consultas e preços independentes do modelo
-
-`Catalog` recebe um conjunto de dados validado e retorna ofertas estruturadas.
-A apresentação no terminal fica separada dos métodos `search_products` e
-`get_product`, que poderão ser reutilizados pelas ferramentas do agente.
-Busca, disponibilidade e cálculo de preços são executados em Python; o modelo
-não precisará estimar esses valores a partir de texto livre.
-
-A busca por nome ignora maiúsculas, acentos e pontuação, procurando todos os
-termos em qualquer ordem. A categoria usa o nome completo normalizado
-(por exemplo, `violoes` corresponde a `Violões`). Os resultados são ordenados
-por preço final, nome e ID. Preferimos essa busca explícita a embeddings neste
-catálogo pequeno: filtros de preço e estoque precisam ser exatos, e o resultado
-é fácil de testar. Ainda não há busca semântica, sinônimos ou correção de digitação.
-
-As regras aplicadas vêm das seções 3, 6.2 e 7.3 de `data/politicas_da_loja.pdf`:
-
-- Um produto só é considerado disponível quando seu status é `active` e o
-  estoque é maior que zero. Um descontinuado com estoque positivo continua
-  indisponível. A consulta pelo ID permite consultar e explicar essa situação.
-- Apenas promoções com `is_active=1` são aplicadas. As tabelas não contêm datas
-  de vigência; o indicador fornecido é a referência, sem inferir campanhas pelo mês.
-- O desconto de PIX de 5% é aplicado quando esse pagamento é solicitado e não
-  existe promoção ativa para o produto. Não há acumulação de descontos.
-- Produtos indisponíveis não recebem uma oferta de desconto; seu preço de tabela
-  é preservado para consulta, sem prometer disponibilidade ou reserva de preço.
-- São apresentados preço de tabela, percentual e motivo do desconto, e preço
-  final. O arredondamento monetário usa duas casas e `ROUND_HALF_UP`; o filtro de
-  orçamento usa o mesmo valor arredondado apresentado ao cliente.
-
-**Suposições documentadas:** se houver mais de uma promoção ativa para o mesmo
-produto, aplicamos somente a de maior desconto; em empate, usamos o menor ID.
-O manual proíbe acumulação, mas não define prioridade entre campanhas. O critério
-de desempate e o arredondamento são decisões do protótipo. Se o negócio definir
-outra prioridade, a regra poderá ser ajustada em um único lugar.
-
-Cada comando do terminal recarrega os arquivos. Uma instância de `Catalog`, por
-sua vez, trabalha com a fotografia recebida na construção e não monitora alterações.
-
-### Recuperação de políticas por seção
-
-O script `scripts/build_policy_index.py` extrai o PDF com `pypdf`, usando o modo
-layout para distinguir títulos alinhados à esquerda das listas numeradas recuadas.
-O índice contém as dez seções principais, com texto, título, páginas, títulos de
-subseções e rótulos de tabelas. A capa e os cabeçalhos/rodapés repetidos são
-descartados; os espaços são normalizados, sem reescrever as regras.
-
-Escolhemos seções completas em vez de blocos de tamanho fixo para manter condições
-e exceções juntas. Uma seção pode atravessar páginas, e nesse caso todas as páginas
-de origem são registradas. Essa abordagem depende do layout deste manual; se ele
-mudar, a extração deverá ser revista. Documentos maiores podem exigir subseções
-menores, com recuperação do contexto ao redor de cada trecho.
-
-`PolicyStore.search` faz ranking lexical BM25 (frequência dos termos, raridade no
-documento e tamanho da seção), com peso adicional para títulos e rótulos de tabelas.
-Usa normalização de acentos/maiúsculas, remoção de palavras comuns e um vocabulário
-pequeno de sinônimos, como `devolver`/`devolução` e `parcelar`/`parcelamento`.
-Isso não equivale a compreensão semântica ou a uma classificação de escopo.
-A pontuação ordena os resultados; não representa uma probabilidade de acerto.
-
-Preferimos essa recuperação local a embeddings e banco vetorial porque temos
-um único manual curto, não precisamos de outra API e conseguimos testar as
-referências e os resultados diretamente. Uma alternativa seria fornecer todo
-o PDF extraído ao modelo em cada conversa; isso repetiria conteúdo sem relação
-com a pergunta. Embeddings podem ser avaliados posteriormente se a busca lexical
-não cobrir as formas de perguntar dos usuários.
-
-O PDF permanece como fonte. O índice registra seu SHA-256 e a versão do extrator;
-se o PDF mudar, a consulta falha até que o índice seja regenerado. A assinatura
-detecta mudanças no arquivo, sem resolver ambiguidades ou verificar a correção
-comercial das políticas. A busca retorna referências e texto, sem decidir
-sozinha se uma devolução ou garantia deve ser aprovada.
-
-#### Regeneração do índice
-
-Somente para atualizar a extração, crie um ambiente virtual e instale a dependência
-fixada em `requirements-ingest.txt`:
+Only rebuilding the PDF extraction requires the pinned optional dependency:
 
 ```bash
 python3 -m venv .venv
@@ -340,195 +188,164 @@ python3 -m scripts.build_policy_index
 python3 -m scripts.build_policy_index --check
 ```
 
-`--check` compara o índice versionado com uma nova extração, sem escrever arquivos.
-Após atualizar o manual, revise o texto, as tabelas e as referências antes de
-registrar o novo índice no Git. A geração aceita `--source` e `--output`; o índice
-e o PDF usado como fonte precisam ficar na mesma pasta para a consulta funcionar.
+`--check` compares the Portuguese index against a fresh extraction without writing
+files. The generator does not automatically translate an updated manual. After a
+source change, review the English translation and update its source signatures
+and references. Merely changing a signature does not validate translation quality.
 
-#### Ambiguidades preservadas no material
+## Technical decisions
 
-- O contato da seção 1.2 difere do WhatsApp informado na seção 7.
-- A tabela de pagamento menciona parcela mínima de R$ 100,00, enquanto a seção
-  3.1 detalha limites diferentes para determinadas quantidades de parcelas.
-- A regra de frete local informa valores abaixo e acima de R$ 500,00, mas não
-  explicita o caso de um pedido exatamente nesse valor.
+### Terminal interface and incremental development
 
-Essas informações permanecem no texto extraído. O agente deve
-identificar a ambiguidade e solicitar esclarecimento à equipe da loja, sem
-inventar uma regra para preencher a lacuna. O prompt do agente já instrui esse
-comportamento; ele precisa ser avaliado também em conversas reais.
+A CLI demonstrates the agent and its lookups without requiring a web frontend.
+The challenge permits this interface; a website would add presentation and
+communication work before improving the core agent. Each implemented stage has
+a separate commit with real progress and validation.
 
-### Modelo local e chamada de ferramentas
+### Structured data in memory
 
-Escolhemos Ollama com `qwen3:4b-instruct` para atender à preferência por inferência local,
-sem API paga. A versão quantizada tem aproximadamente 2,5 GB e suporta
-[chamada de ferramentas](https://ollama.com/library/qwen3:4b-instruct).
-O tamanho foi escolhido como ponto de partida para um Mac Apple Silicon com
-16 GB de memória; modelos maiores podem melhorar respostas, mas exigem mais
-recursos. A velocidade e a qualidade dependem do equipamento e das perguntas.
-Não adotamos um provedor remoto por causa da preferência de execução local.
-Preferimos a variante `instruct` à variante de raciocínio: as tarefas são consultas
-curtas, e a tag `qwen3:4b` disponível no ambiente apontou para um modelo que só
-oferece raciocínio e atingiu o limite de geração em uma busca de catálogo.
+`csv.DictReader` and dataclasses provide explicit entity fields without external
+dependencies. Tables with primary keys are indexed by ID; order items remain a
+sequence because one order can contain multiple products. The small supplied
+dataset fits in memory. Pandas is unnecessary for these operational lookups, and
+SQLite would introduce an import and database lifecycle before they are needed.
+Each tool reloads its source; a `Catalog` instance itself holds a snapshot.
 
-`emporio/ollama_client.py` implementa somente a chamada HTTP de chat necessária,
-conforme a [API oficial](https://docs.ollama.com/api/chat). A biblioteca padrão
-é suficiente para esse endpoint; não adicionamos um SDK para essa integração
-pequena. O modelo é executado com temperatura 0, contexto de 8192 tokens e saída
-limitada a 1024 tokens. O modo de raciocínio explícito fica desativado para reduzir
-o trabalho de inferência nesta interação; a qualidade ainda precisa ser validada.
+Validation rejects invalid headers, row widths, empty required fields, empty
+tables, duplicate primary keys and broken references. Money and discounts use
+`Decimal`; dates use `date`; specifications use JSON objects; flags accept `0/1`.
+Stock may be zero but not negative. Missing tracking, delivery estimates and notes
+become `None`. Invalid rows stop loading instead of silently hiding records.
 
-O fluxo segue a [documentação de ferramentas do Ollama](https://docs.ollama.com/capabilities/tool-calling):
+### Pricing in Python
 
-1. O modelo recebe a mensagem, o prompt e os esquemas das ferramentas.
-2. Se solicitar uma consulta, a aplicação valida os argumentos e executa uma função permitida.
-3. O resultado estruturado volta ao modelo, que pode consultar novamente ou responder.
+A product is available only when its status is `active` and stock is positive.
+Discontinued products remain unavailable even if a stock count is present. Only
+active promotions apply. A requested PIX payment receives 5% off only when no
+promotion is active; discounts never stack. Unavailable products have no final
+sale price in tool responses. Historical order totals are not recalculated from
+today's catalog prices.
 
-Preferimos um laço explícito a LangChain ou outro framework porque temos poucas
-ferramentas de leitura e um único modelo. O fluxo fica visível e testável; não há
-execução de código gerado, SQL livre, comandos do sistema ou ferramentas de escrita.
-`Toolbox` recarrega as fontes em cada consulta e restringe os argumentos permitidos.
-Preços são devolvidos como textos decimais, e produtos indisponíveis não recebem
-um preço final de venda no resultado enviado ao modelo.
-Se o modelo repetir um tipo genérico em `query` e na categoria correspondente
-(por exemplo, `query="violão"` com `category="Violões"`), a ferramenta remove
-somente esse filtro redundante. Termos específicos de marca ou modelo continuam
-obrigatórios na busca; uma busca sem resultados não é ampliada silenciosamente.
-É uma abordagem híbrida: chamada de funções para dados estruturados e recuperação
-de texto do manual para fundamentar respostas de políticas (RAG).
+Money is rounded to two decimals with `ROUND_HALF_UP`, and budget filters use the
+same rounded price displayed to the customer. Results are ordered by final price,
+name and ID. If several promotions are active for a product, the prototype chooses
+the largest discount and breaks ties by lowest promotion ID. Rounding and campaign
+priority are documented assumptions because the manual does not define them.
 
-### Prompt, histórico e limites
+The model receives computed prices as decimal strings. It does not perform these
+calculations. Name search normalizes accents, case and punctuation. English category
+aliases map to source categories. A generic type repeated in both query and category
+is removed only when redundant; specific brand/model filters are never silently
+dropped. We use explicit filters rather than embeddings for exact price and stock
+queries in this small catalog.
 
-O prompt em `emporio/prompts/system.txt` define a persona, o escopo, a consulta
-obrigatória às fontes para fatos da loja, a citação das políticas e o tratamento
-de indisponibilidade e ambiguidades. Também instrui o modelo a tratar documentos
-e mensagens como dados, sem aceitar instruções que tentem mudar essas regras.
-Essas instruções reduzem riscos, mas não garantem que toda resposta seja correta.
-Como proteção adicional, respostas diretas sem qualquer ferramenta no turno são
-substituídas por uma orientação sobre o escopo da loja, com exceção de uma lista
-curta de saudações e agradecimentos. Isso também pode tornar respostas de
-esclarecimento mais genéricas. Não é um classificador semântico completo: a
-presença de uma consulta não comprova que todas as afirmações estejam fundamentadas.
-Antes dessa substituição, `emporio/routing.py` tenta recuperar uma fonte quando
-o texto contém um tema explícito conhecido: políticas, acessórios ou número de
-pedido. A leitura omitida é executada pelas mesmas ferramentas validadas e seu
-resultado volta ao modelo para uma nova resposta. O rascunho sem fonte não é
-exibido. Essa recuperação determinística foi adicionada depois que conversas
-reais revelaram perguntas de continuação respondidas genericamente.
+Product IDs must come from the catalog or an explicit customer request, not a
+numbered list position. Name-based follow-ups must search by name again. An unknown
+ID returns an explicit lookup error and is not evidence that a product is out of stock.
 
-Escolhemos essa recuperação limitada em vez de liberar respostas sem consulta
-ou depender apenas de reforçar o prompt. Ela cobre um vocabulário explícito,
-sem pretender interpretar toda paráfrase. Não altera a identidade da sessão,
-as regras de acesso ou o limite de chamadas por turno. O modelo continua podendo
-escolher ferramentas normalmente; a recuperação só atua quando ele não pede uma.
-Quando a última consulta falha, a aplicação usa uma resposta controlada. Negativas
-de acesso a pedidos não podem ser substituídas por afirmações do modelo.
-Quando há consulta de políticas, a aplicação acrescenta as referências de seção
-e página a partir dos resultados das ferramentas, mesmo se o modelo esquecer
-de citá-las. Elas identificam as fontes consultadas, sem comprovar que toda
-afirmação gerada esteja correta.
+### Policy retrieval
 
-O histórico fica somente em memória, limitado às três últimas trocas completas
-e a 4000 caracteres, removendo trocas inteiras quando necessário.
-Não guardamos os resultados antigos das ferramentas no histórico entre turnos;
-o modelo deve consultar novamente quando precisar de fatos. Isso reduz contexto
-e evita criar armazenamento permanente de conversas nesta demonstração. Banco
-de dados ou Redis não são necessários para essa experiência de uma sessão local.
+The original PDF is extracted with `pypdf` in layout mode, distinguishing main
+headings from indented numbered lists. Complete sections retain their conditions
+and exceptions, including sections spanning pages. This avoids cutting a rule from
+its exclusions, as fixed-size chunks might do. Larger manuals may need smaller
+subsections with parent-context retrieval.
 
-Cada mensagem admite até seis rodadas de modelo e oito chamadas de ferramentas,
-com timeout de 120 segundos por requisição. Isso limita laços de consulta; não
-é um timeout global da conversa. Mensagens têm até 2000 caracteres. Falhas não
-são adicionadas como turnos completos ao histórico. `--trace` mostra nomes das
-ferramentas, sem imprimir seus argumentos ou dados de clientes.
+Search uses BM25 with additional weight for headings and table labels, normalized
+terms, stop words and a small bilingual synonym vocabulary. Scores are ranking
+values, not confidence probabilities. The English reference keeps retrieval and
+standalone output in English without a translation API. We chose local lexical
+retrieval over embeddings and a vector database because there is one short manual
+and results are easy to inspect. Sending the entire manual on every request would
+repeat irrelevant material. Semantic retrieval can be evaluated if actual queries
+show that lexical coverage is insufficient.
 
-### Isolamento das consultas de pedidos
+### Local model and orchestration
 
-A ferramenta `get_order` aceita somente o ID do pedido. O cliente é vinculado
-pela aplicação ao construir a sessão e não é um argumento disponível ao modelo.
-O código compara a titularidade antes de devolver qualquer informação. Um pedido
-de terceiro e um inexistente produzem o mesmo erro; telefone, e-mail e notas
-internas não são devolvidos. Não existe ferramenta para listar todos os clientes
-ou alterar essa identidade.
+Ollama with [Qwen3:4b-instruct](https://ollama.com/library/qwen3:4b-instruct) meets
+the preference for local inference without paid API calls. This quantized model
+was selected as a starting point for a 16 GB Apple Silicon Mac. Larger models may
+improve quality while requiring more resources. The instruct variant is preferable
+to the thinking-only variant encountered during development for these short tasks.
 
-A fonte continua sendo o CSV fornecido: não consultamos transportadoras e não
-prometemos atualizações em tempo real. O total histórico do pedido é preservado.
+`ollama_client.py` uses the standard library for the single required
+[chat endpoint](https://docs.ollama.com/api/chat), avoiding an SDK dependency.
+Requests use temperature 0, an 8192-token context and at most 1024 output tokens,
+with explicit thinking disabled. Marked thinking blocks are not shown to customers.
 
-### Validação da integração local
+The application follows Ollama's [tool-calling flow](https://docs.ollama.com/capabilities/tool-calling):
+the model requests a named function, the application validates and executes it,
+and the result returns to the model. This is a hybrid approach: function calling
+for structured data and retrieval-augmented generation for manual policies.
+An explicit loop is sufficient for six read-only tools and one model; LangChain
+or another orchestration framework would add abstraction before it is needed.
+There is no generated-code execution, free-form SQL, shell tool or write tool.
 
-Ambiente observado: Python 3.9.6, Ollama 0.40.14, Mac Apple Silicon com 16 GB de
-memória, modelo `qwen3:4b-instruct` com identificador local `0edcdef34593`.
-Os identificadores podem mudar caso o provedor atualize a tag do modelo.
+### Grounding, scope and follow-up recovery
 
-Foram executados 98 testes automatizados sem inferência real, cobrindo dados,
-catálogo, políticas, argumentos de ferramentas, isolamento de pedidos, laço de
-consultas, histórico, falhas de HTTP e apresentação das respostas.
+`prompts/system.txt` defines an English-speaking virtual persona, scope, source
+lookups, unavailable products, policy exceptions and ambiguous conditions. Source
+content is treated as data rather than instructions. Prompts alone do not guarantee
+correct behavior.
 
-Na primeira validação do commit `5522a38`, foram observados estes resultados no modelo local:
+If the model omits a lookup for a recognized policy topic, accessory request or
+explicit order number, `routing.py` triggers a validated read and asks the model
+again with that source. The unsupported draft is discarded. This limited fallback
+was introduced after real follow-up questions produced generic scope replies.
+It is not a general semantic classifier and cannot cover every paraphrase.
 
-| Cenário | Resultado observado |
-| --- | --- |
-| Produto 121 com PIX | Consulta de produto e preço final de R$ 439,20, sem acumular descontos |
-| Horário de sábado | Consulta ao manual, horário das 09:00 às 13:00 e referência à seção 2, página 2 |
-| Violões disponíveis até R$ 1.000 | Consulta de categorias e produtos; cinco opções com preços e aviso de lista parcial |
-| Pergunta sobre a capital da França | Orientação sobre o escopo da loja, sem apresentar a resposta fora do escopo |
-| Pedido 1 na sessão do cliente 3 | Consulta autorizada com status, total histórico e rastreamento |
-| Pedido 2 na sessão do cliente 3 | Nenhum dado de terceiro revelado; nessa execução o modelo não chamou a ferramenta e recebeu a resposta genérica de escopo |
+Other direct replies without a lookup are replaced with a scope explanation,
+except for a short greeting/thanks vocabulary. This can make clarification less
+natural. The last tool error produces a controlled response, so an order denial
+cannot simply be replaced by the model's final wording. Policy section/page
+references are appended from tool results even if the model forgets them.
+Having a reference does not prove every generated claim is correct.
 
-Essas verificações não são uma avaliação exaustiva e não garantem o mesmo
-comportamento em toda conversa. A recusa precisa de acesso a terceiros também
-é coberta pelos testes da ferramenta, independentemente da escolha do modelo.
-As capturas posteriores também orientam melhorias no fluxo de recuperação,
-especialmente nas perguntas de continuação.
+### History, limits and privacy
 
+Only the last three completed exchanges, capped at 4000 characters, remain in
+memory. Whole exchanges are removed when needed. Old tool results are not carried
+between turns; facts must be queried again. No conversation database or Redis is
+needed for this single-session demonstration. `/reset` clears that history.
 
-## Etapas implementadas
+Each message allows at most six model rounds and eight tool calls, with a
+120-second timeout per request and a 2000-character input limit. This is not a
+global conversation timeout. Failed turns are not committed to history. Trace
+output shows tool names rather than arguments or customer records.
 
-- [x] Documentar o escopo e preparar o versionamento.
-- [x] Incorporar, ler e validar os dados fornecidos.
-- [x] Implementar consultas de produtos, estoque e promoções.
-- [x] Implementar a consulta das políticas da loja.
-- [x] Integrar o modelo e disponibilizar a conversa no terminal, com restrições de acesso a pedidos.
-- [x] Validar cenários, registrar cinco conversas e documentar execução e limitações.
+`get_order` accepts an order ID, never a customer identity. Ownership is checked
+in Python against the session customer. Missing and third-party orders return the
+same error. Customer contact details and internal notes are excluded. The data
+remain a supplied snapshot without live carrier or production-system integration.
 
-## Validação
+## Validation and known limitations
 
-Os testes foram adicionados junto com as regras implementadas. Os cenários
-cobertos incluem filtros de produtos, indisponibilidade, promoções inativas,
-regras de desconto, informações ausentes, consulta de pedidos e perguntas fora
-do escopo. A integração foi exercitada nas cinco conversas reais registradas;
-os testes automatizados e essas capturas têm escopos diferentes, descritos acima.
+The automated suite includes 103 tests for data validation, pricing, English
+category aliases, policy retrieval and translation freshness, tool arguments,
+order isolation, follow-up recovery, history and HTTP failures. HTTP/model replies
+are simulated in unit tests; real inference is exercised separately in the five
+recorded English conversations. These checks are not an exhaustive evaluation.
 
-## Limitações atuais
+Ambiguities deliberately preserved from the manual include different contact
+numbers in sections 1 and 7, differing installment minimums in the payment table
+and section 3.1, and undefined local shipping for exactly BRL 500.00. The assistant
+should explain uncertainty and refer the customer to staff rather than invent a rule.
 
-- Os dados fornecidos são uma fotografia da operação; não existe integração com
-  um sistema de produção ou com WhatsApp.
-- A identificação de cliente no terminal é uma simulação, sem autenticação real.
-  O isolamento dos pedidos é aplicado em código, mas a identidade precisa vir de
-  um mecanismo de autenticação confiável antes de qualquer uso em produção.
-- Modelos locais podem errar argumentos, deixar de consultar ferramentas ou usar
-  inadequadamente o texto recuperado. Os testes com respostas simuladas não medem
-  esse comportamento; conversas reais são necessárias para avaliar o conjunto.
-- A busca de políticas depende das palavras e sinônimos conhecidos. Pode retornar
-  trechos parcialmente relacionados ou não encontrar paráfrases; ela não substitui
-  a avaliação da pergunta e do contexto pelo agente.
-- As políticas podem conter ambiguidades. As interpretações adotadas serão
-  documentadas conforme forem identificadas e implementadas.
+Other limitations include simulated identity, lexical search coverage, finite
+fallback vocabulary and model mistakes in tool selection, source interpretation
+or answer completeness. The English reference is a maintained translation, not
+an automatic update pipeline. There is no real order mutation, refund approval,
+complaint registration or WhatsApp integration.
 
-## O que faria com mais tempo
+With more time, I would evaluate larger local models on a broader conversation
+set, measure factual consistency and latency, improve follow-up/paraphrase
+coverage, add real authentication before publishing order access, resolve manual
+ambiguities with the store and connect validated operational APIs. Semantic search
+would be considered based on observed retrieval failures rather than by default.
 
-- Avaliar outros modelos locais com um conjunto maior de perguntas e medir
-  fidelidade às fontes, escolha de ferramentas e latência no mesmo equipamento.
-- Ampliar a cobertura de perguntas de continuação e paráfrases com testes de
-  conversas, reduzindo a dependência do vocabulário explícito da recuperação.
-- Substituir a sessão simulada por autenticação real antes de publicar qualquer
-  acesso a pedidos, mantendo a autorização fora do modelo.
-- Resolver as ambiguidades do manual com a equipe da loja e avaliar busca
-  semântica caso os testes mostrem que BM25 e sinônimos não são suficientes.
-- Conectar as fontes a uma API operacional para atualizar catálogo e pedidos,
-  com tratamento de indisponibilidade e registros que preservem dados pessoais.
+## AI coding assistance
 
-## Uso de assistência de IA
-
-Este projeto está sendo desenvolvido com auxílio de uma ferramenta para codificação chamada Cursor, pela familiaridade que possuo com a mesma tendo em vista já ter utilizado, inclusive no plano pago, para completar código e sugestão de codificação. Isso me ajudou muito em termos de produtividade.
-
-Este registro será atualizado conforme o desenvolvimento avançar.
+This project uses Cursor as a coding assistant, based on previous familiarity
+with the tool, including prior use of a paid plan for code completion and coding
+suggestions. This helped with productivity. This record will be updated as
+development progresses.

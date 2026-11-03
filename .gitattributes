@@ -1,4 +1,6 @@
 # Preserve original CSV line endings and recognize CRLF during whitespace checks.
 data/*.csv -text whitespace=cr-at-eol
+# Keep reference-index signatures stable across checkout platforms.
+data/*.json text eol=lf
 # Preserve Markdown hard-break spaces in captured application responses.
 examples/*.md whitespace=-blank-at-eol
