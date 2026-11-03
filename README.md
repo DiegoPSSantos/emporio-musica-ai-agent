@@ -55,7 +55,7 @@ O `.gitignore` inicial também exclui ambientes virtuais e arquivos temporários
 4. Implementar a consulta das políticas da loja.
 5. Integrar o modelo e disponibilizar a conversa no terminal, incluindo consultas
    de pedidos com as restrições de acesso definidas.
-6. Validar os cenários, registrar de uma a três conversas reais com o agente
+6. Validar os cenários, registrar de três a cinco conversas reais com o agente
    e concluir as instruções de execução e limitações.
 
 ## Validação planejada
