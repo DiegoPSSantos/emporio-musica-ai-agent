@@ -132,6 +132,23 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("entregue", result)
         self.assertIn("não encontrado", result)
 
+    def test_policy_followup_without_model_tool_call_gets_grounded_before_answer(self):
+        client = FakeClient([answer("Rascunho sem consulta."), answer("Condições consultadas.")])
+        agent = Agent(client, Toolbox())
+        result = agent.ask("Posso devolver?")
+        self.assertEqual(agent.last_tool_calls, ["search_policies"])
+        self.assertEqual(client.requests[1][-1]["role"], "tool")
+        self.assertIn("seção 4", result)
+        self.assertNotIn("Rascunho", result)
+
+    def test_order_followup_fallback_still_enforces_session_ownership(self):
+        client = FakeClient([answer("Sem consulta."), answer("Pedido entregue.")])
+        agent = Agent(client, Toolbox(customer_id=3))
+        result = agent.ask("E o pedido 2?")
+        self.assertEqual(agent.last_tool_calls, ["get_order"])
+        self.assertIn("não encontrado", result)
+        self.assertNotIn("entregue", result)
+
 
 class OllamaClientTests(unittest.TestCase):
     def test_http_payload_is_local_non_streaming_and_uses_tools(self):

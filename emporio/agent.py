@@ -11,6 +11,7 @@ from emporio.ollama_client import ModelError, OllamaClient
 from emporio.policies import PolicyIndexError, load_policies
 from emporio.tools import TOOL_SCHEMAS, Toolbox
 from emporio.text import normalize_text
+from emporio.routing import fallback_lookup
 
 
 SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "system.txt").read_text(encoding="utf-8")
@@ -48,6 +49,12 @@ class Agent:
             calls = message.get("tool_calls") or []
             if not isinstance(calls, list):
                 raise ModelError("O modelo retornou chamadas de ferramentas inválidas.")
+            if not calls and last_result is None:
+                lookup = fallback_lookup(text)
+                if lookup is not None:
+                    # A aplicação pede a leitura omitida; o rascunho sem fonte é descartado.
+                    calls = [{"function": lookup}]
+                    message = {"role": "assistant", "content": "", "tool_calls": calls}
             if not calls:
                 answer = message.get("content", "").strip()
                 if not answer:

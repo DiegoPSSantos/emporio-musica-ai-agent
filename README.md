@@ -359,6 +359,18 @@ substituídas por uma orientação sobre o escopo da loja, com exceção de uma 
 curta de saudações e agradecimentos. Isso também pode tornar respostas de
 esclarecimento mais genéricas. Não é um classificador semântico completo: a
 presença de uma consulta não comprova que todas as afirmações estejam fundamentadas.
+Antes dessa substituição, `emporio/routing.py` tenta recuperar uma fonte quando
+o texto contém um tema explícito conhecido: políticas, acessórios ou número de
+pedido. A leitura omitida é executada pelas mesmas ferramentas validadas e seu
+resultado volta ao modelo para uma nova resposta. O rascunho sem fonte não é
+exibido. Essa recuperação determinística foi adicionada depois que conversas
+reais revelaram perguntas de continuação respondidas genericamente.
+
+Escolhemos essa recuperação limitada em vez de liberar respostas sem consulta
+ou depender apenas de reforçar o prompt. Ela cobre um vocabulário explícito,
+sem pretender interpretar toda paráfrase. Não altera a identidade da sessão,
+as regras de acesso ou o limite de chamadas por turno. O modelo continua podendo
+escolher ferramentas normalmente; a recuperação só atua quando ele não pede uma.
 Quando a última consulta falha, a aplicação usa uma resposta controlada. Negativas
 de acesso a pedidos não podem ser substituídas por afirmações do modelo.
 Quando há consulta de políticas, a aplicação acrescenta as referências de seção
@@ -397,11 +409,11 @@ Ambiente observado: Python 3.9.6, Ollama 0.40.14, Mac Apple Silicon com 16 GB de
 memória, modelo `qwen3:4b-instruct` com identificador local `0edcdef34593`.
 Os identificadores podem mudar caso o provedor atualize a tag do modelo.
 
-Foram executados 91 testes automatizados sem inferência real, cobrindo dados,
+Foram executados 98 testes automatizados sem inferência real, cobrindo dados,
 catálogo, políticas, argumentos de ferramentas, isolamento de pedidos, laço de
 consultas, histórico, falhas de HTTP e apresentação das respostas.
 
-Também foram verificados manualmente estes cenários no modelo local:
+Na primeira validação do commit `5522a38`, foram observados estes resultados no modelo local:
 
 | Cenário | Resultado observado |
 | --- | --- |
@@ -415,7 +427,8 @@ Também foram verificados manualmente estes cenários no modelo local:
 Essas verificações não são uma avaliação exaustiva e não garantem o mesmo
 comportamento em toda conversa. A recusa precisa de acesso a terceiros também
 é coberta pelos testes da ferramenta, independentemente da escolha do modelo.
-As conversas demonstrativas da entrega serão registradas em etapa própria.
+As capturas posteriores também orientam melhorias no fluxo de recuperação,
+especialmente nas perguntas de continuação.
 
 
 ## Plano de implementação
