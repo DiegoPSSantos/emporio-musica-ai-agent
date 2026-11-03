@@ -1,0 +1,2 @@
+# Usado apenas para regenerar o índice; consultas e testes não exigem este pacote.
+pypdf==6.10.0

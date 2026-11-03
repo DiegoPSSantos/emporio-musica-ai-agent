@@ -6,12 +6,14 @@ musicais, respondendo com base nos dados da operação e nas políticas fornecid
 
 ## Estado atual e execução
 
-A leitura e validação dos dados e as consultas ao catálogo estão implementadas.
-A conversa com o agente e a integração com o modelo ainda não estão disponíveis.
+A leitura e validação dos dados, as consultas ao catálogo e a recuperação de
+trechos das políticas estão implementadas. A conversa com o agente e a integração
+com o modelo ainda não estão disponíveis.
 
-Esta etapa usa somente a biblioteca padrão do Python, com sintaxe compatível
-com Python 3.9 ou superior. Não é necessário instalar pacotes ou configurar
-chaves de API. Na raiz do projeto, execute:
+As consultas e os testes usam somente a biblioteca padrão do Python, com sintaxe
+compatível com Python 3.9 ou superior. Não é necessário instalar pacotes ou configurar
+chaves de API para executá-los. A extração do PDF usa uma dependência opcional,
+descrita adiante. Na raiz do projeto, execute:
 
 ```bash
 python3 -m emporio.data
@@ -48,6 +50,20 @@ ou vírgula decimal, sem separador de milhar. A busca usa o preço final para a
 condição de pagamento selecionada; o limite de preço é inclusivo. `standard`
 (padrão) considera promoções ativas sem presumir pagamento via PIX.
 
+Para recuperar trechos das políticas, com página e seção de origem:
+
+```bash
+python3 -m emporio.policies search "Que horas vocês abrem aos sábados?" --limit 1
+python3 -m emporio.policies search "Me arrependi da compra, posso devolver?"
+python3 -m emporio.policies show 4
+```
+
+`search` retorna até três seções completas por padrão; `--limit` aceita de 1 a 10.
+`show` consulta o número de uma seção principal. Não é uma resposta gerada pelo
+agente: o comando mostra o texto extraído do manual. Sem termos correspondentes,
+ele informa que não encontrou uma seção. Ambos aceitam `--index` para indicar
+outro índice, cujo PDF fonte deve estar na mesma pasta.
+
 Para executar os testes:
 
 ```bash
@@ -72,7 +88,8 @@ da loja.
 Os arquivos estão em `data/`. Os conteúdos originais foram preservados; apenas
 os nomes foram simplificados para `categories.csv`, `customers.csv`,
 `order_items.csv`, `orders.csv`, `products.csv`, `promotions.csv` e
-`politicas_da_loja.pdf`. O PDF será integrado na etapa de consulta das políticas.
+`politicas_da_loja.pdf`. O índice derivado `politicas_da_loja.json` também está
+versionado, permitindo consultar as políticas sem instalar um leitor de PDF.
 O `.gitattributes` preserva o formato de quebra de linha dos CSVs originais.
 
 
@@ -174,6 +191,70 @@ outra prioridade, a regra poderá ser ajustada em um único lugar.
 Cada comando do terminal recarrega os arquivos. Uma instância de `Catalog`, por
 sua vez, trabalha com a fotografia recebida na construção e não monitora alterações.
 
+### Recuperação de políticas por seção
+
+O script `scripts/build_policy_index.py` extrai o PDF com `pypdf`, usando o modo
+layout para distinguir títulos alinhados à esquerda das listas numeradas recuadas.
+O índice contém as dez seções principais, com texto, título, páginas, títulos de
+subseções e rótulos de tabelas. A capa e os cabeçalhos/rodapés repetidos são
+descartados; os espaços são normalizados, sem reescrever as regras.
+
+Escolhemos seções completas em vez de blocos de tamanho fixo para manter condições
+e exceções juntas. Uma seção pode atravessar páginas, e nesse caso todas as páginas
+de origem são registradas. Essa abordagem depende do layout deste manual; se ele
+mudar, a extração deverá ser revista. Documentos maiores podem exigir subseções
+menores, com recuperação do contexto ao redor de cada trecho.
+
+`PolicyStore.search` faz ranking lexical BM25 (frequência dos termos, raridade no
+documento e tamanho da seção), com peso adicional para títulos e rótulos de tabelas.
+Usa normalização de acentos/maiúsculas, remoção de palavras comuns e um vocabulário
+pequeno de sinônimos, como `devolver`/`devolução` e `parcelar`/`parcelamento`.
+Isso não equivale a compreensão semântica ou a uma classificação de escopo.
+A pontuação ordena os resultados; não representa uma probabilidade de acerto.
+
+Preferimos essa recuperação local a embeddings e banco vetorial porque temos
+um único manual curto, não precisamos de outra API e conseguimos testar as
+referências e os resultados diretamente. Uma alternativa seria fornecer todo
+o PDF extraído ao modelo em cada conversa; isso repetiria conteúdo sem relação
+com a pergunta. Embeddings podem ser avaliados posteriormente se a busca lexical
+não cobrir as formas de perguntar dos usuários.
+
+O PDF permanece como fonte. O índice registra seu SHA-256 e a versão do extrator;
+se o PDF mudar, a consulta falha até que o índice seja regenerado. A assinatura
+detecta mudanças no arquivo, sem resolver ambiguidades ou verificar a correção
+comercial das políticas. A busca retorna referências e texto, sem decidir
+sozinha se uma devolução ou garantia deve ser aprovada.
+
+#### Regeneração do índice
+
+Somente para atualizar a extração, crie um ambiente virtual e instale a dependência
+fixada em `requirements-ingest.txt`:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements-ingest.txt
+python3 -m scripts.build_policy_index
+python3 -m scripts.build_policy_index --check
+```
+
+`--check` compara o índice versionado com uma nova extração, sem escrever arquivos.
+Após atualizar o manual, revise o texto, as tabelas e as referências antes de
+registrar o novo índice no Git. A geração aceita `--source` e `--output`; o índice
+e o PDF usado como fonte precisam ficar na mesma pasta para a consulta funcionar.
+
+#### Ambiguidades preservadas no material
+
+- O contato da seção 1.2 difere do WhatsApp informado na seção 7.
+- A tabela de pagamento menciona parcela mínima de R$ 100,00, enquanto a seção
+  3.1 detalha limites diferentes para determinadas quantidades de parcelas.
+- A regra de frete local informa valores abaixo e acima de R$ 500,00, mas não
+  explicita o caso de um pedido exatamente nesse valor.
+
+Essas informações permanecem no texto extraído. A integração futura deverá
+identificar a ambiguidade e solicitar esclarecimento à equipe da loja, sem
+inventar uma regra para preencher a lacuna.
+
 
 ## Plano de implementação
 
@@ -202,6 +283,9 @@ reais.
   na conversa. A restrição de consultas de pedidos ainda será implementada.
 - As consultas de catálogo ainda exigem argumentos explícitos, sem interpretação
   de linguagem natural ou recomendação automática de alternativas.
+- A busca de políticas depende das palavras e sinônimos conhecidos. Pode retornar
+  trechos parcialmente relacionados ou não encontrar paráfrases; ela não substitui
+  a avaliação da pergunta e do contexto pelo agente.
 - As políticas podem conter ambiguidades. As interpretações adotadas serão
   documentadas conforme forem identificadas e implementadas.
 

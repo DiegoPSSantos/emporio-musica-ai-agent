@@ -1,24 +1,13 @@
 """Consultas de catálogo e cálculo de preços, independentes do modelo de linguagem."""
 
 import argparse
-import unicodedata
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Optional
 
 from emporio.data import DEFAULT_DATA_DIR, DataValidationError, Dataset, Product, load_dataset
-
-
-def _normalize(text: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", text.casefold())
-    return " ".join(
-        "".join(
-            character if character.isalnum() else " "
-            for character in decomposed
-            if not unicodedata.combining(character)
-        ).split()
-    )
+from emporio.text import normalize_text as _normalize
 
 
 def _validate_payment_method(payment_method: str) -> None:
