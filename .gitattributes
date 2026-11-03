@@ -1,2 +1,4 @@
 # Preservar as quebras de linha dos CSVs fornecidos e reconhecer CRLF na revisão.
 data/*.csv -text whitespace=cr-at-eol
+# Preservar também os espaços de quebra de linha Markdown nas respostas capturadas.
+examples/*.md whitespace=-blank-at-eol

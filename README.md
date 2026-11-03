@@ -8,6 +8,7 @@ musicais, respondendo com base nos dados da operação e nas políticas fornecid
 
 A aplicação possui leitura e validação dos dados, consultas ao catálogo,
 recuperação de políticas e conversa pelo terminal com um modelo local via Ollama.
+Cinco conversas reais estão registradas na seção de exemplos abaixo.
 
 ### Conversar com o agente
 
@@ -118,6 +119,55 @@ Para executar os testes:
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+## Exemplos de conversa
+
+Os cinco arquivos abaixo registram conversas reais com a aplicação local, com
+duas mensagens de cliente por conversa. As falas não foram reescritas para a
+documentação. Cada registro identifica modelo, commit da aplicação, ferramentas
+acionadas e tempo observado por mensagem.
+
+| Conversa | Foco |
+| --- | --- |
+| [Catálogo e continuação](examples/01_catalogo.md) | Orçamento, estoque e consulta de preço por PIX na continuação |
+| [Promoção e PIX](examples/02_promocao_pix.md) | Preço promocional e regra de não acumulação de descontos |
+| [Políticas](examples/03_politicas.md) | Horário e condições de devolução com referências ao manual |
+| [Pedidos](examples/04_pedidos.md) | Pedido autorizado e tentativa de acesso a outro cliente |
+| [Escopo](examples/05_escopo.md) | Assunto alheio à loja e solicitação de acessórios |
+
+Para gerar uma nova captura com os mesmos cenários, mantendo o Ollama ativo:
+
+```bash
+python3 -m scripts.record_examples --output-dir /tmp/emporio-exemplos
+```
+
+Para substituir explicitamente os registros versionados, use `--overwrite`.
+`--only 02_promocao_pix`, por exemplo, executa somente essa conversa. O comando
+não avalia automaticamente a correção das respostas: ele preserva o resultado,
+incluindo erros da aplicação se ocorrerem. As saídas podem variar em novas execuções.
+Revise-as antes de versionar; não edite manualmente as falas para aparentar sucesso.
+
+### Revisão das capturas
+
+As capturas finais foram executadas sobre o commit da aplicação `24cf425`,
+com dez mensagens de cliente ao todo e sem erros de execução. Os preços e
+estoques apresentados foram conferidos com as consultas do catálogo, e as
+referências das políticas foram comparadas com o índice do manual.
+
+O cenário de promoção demonstra uma situação não trivial: o produto 121 mantém
+o preço promocional de R$ 439,20 no PIX, e a pergunta seguinte recupera do manual
+a regra que impede acumular os descontos. O cenário de pedidos também confirma
+a negativa de acesso a um pedido de outro cliente na sessão simulada.
+
+A primeira captura, ainda no commit `5522a38`, mostrou respostas genéricas em
+perguntas legítimas de continuação. Isso motivou a recuperação de fontes adicionada
+em `24cf425`; os mesmos cenários foram executados novamente após a correção.
+
+As falas foram preservadas, inclusive aspectos a melhorar: o catálogo contém a
+palavra em inglês “excellent”, e a resposta de devolução acrescenta orientação
+sobre defeito e garantia que não foi solicitada, além de não listar todas as
+exceções da seção 4.4. Esses pontos mostram a necessidade de melhorar foco e
+completude das respostas; a captura não representa aprovação automática de devolução.
 
 ## Escopo
 
@@ -431,24 +481,22 @@ As capturas posteriores também orientam melhorias no fluxo de recuperação,
 especialmente nas perguntas de continuação.
 
 
-## Plano de implementação
+## Etapas implementadas
 
-1. Documentar o escopo e preparar o versionamento.
-2. Incorporar, ler e validar os dados fornecidos.
-3. Implementar consultas de produtos, estoque e promoções.
-4. Implementar a consulta das políticas da loja.
-5. Integrar o modelo e disponibilizar a conversa no terminal, incluindo consultas
-   de pedidos com as restrições de acesso definidas.
-6. Validar os cenários, registrar de três a cinco conversas reais com o agente
-   e concluir as instruções de execução e limitações.
+- [x] Documentar o escopo e preparar o versionamento.
+- [x] Incorporar, ler e validar os dados fornecidos.
+- [x] Implementar consultas de produtos, estoque e promoções.
+- [x] Implementar a consulta das políticas da loja.
+- [x] Integrar o modelo e disponibilizar a conversa no terminal, com restrições de acesso a pedidos.
+- [x] Validar cenários, registrar cinco conversas e documentar execução e limitações.
 
-## Validação planejada
+## Validação
 
-Os testes serão adicionados junto com as regras implementadas. Os cenários
-prioritários incluem filtros de produtos, indisponibilidade, promoções inativas,
+Os testes foram adicionados junto com as regras implementadas. Os cenários
+cobertos incluem filtros de produtos, indisponibilidade, promoções inativas,
 regras de desconto, informações ausentes, consulta de pedidos e perguntas fora
-do escopo. A integração com o modelo também precisará de validação com conversas
-reais.
+do escopo. A integração foi exercitada nas cinco conversas reais registradas;
+os testes automatizados e essas capturas têm escopos diferentes, descritos acima.
 
 ## Limitações atuais
 
@@ -465,6 +513,19 @@ reais.
   a avaliação da pergunta e do contexto pelo agente.
 - As políticas podem conter ambiguidades. As interpretações adotadas serão
   documentadas conforme forem identificadas e implementadas.
+
+## O que faria com mais tempo
+
+- Avaliar outros modelos locais com um conjunto maior de perguntas e medir
+  fidelidade às fontes, escolha de ferramentas e latência no mesmo equipamento.
+- Ampliar a cobertura de perguntas de continuação e paráfrases com testes de
+  conversas, reduzindo a dependência do vocabulário explícito da recuperação.
+- Substituir a sessão simulada por autenticação real antes de publicar qualquer
+  acesso a pedidos, mantendo a autorização fora do modelo.
+- Resolver as ambiguidades do manual com a equipe da loja e avaliar busca
+  semântica caso os testes mostrem que BM25 e sinônimos não são suficientes.
+- Conectar as fontes a uma API operacional para atualizar catálogo e pedidos,
+  com tratamento de indisponibilidade e registros que preservem dados pessoais.
 
 ## Uso de assistência de IA
 
