@@ -32,7 +32,7 @@ TOOL_SCHEMAS = [
         "available_only": {"type": "boolean"},
         "limit": {"type": "integer", "minimum": 1, "maximum": 20},
     }),
-    _tool("get_product", "Look up a product by ID, including unavailable products.", {
+    _tool("get_product", "Look up a product by its actual catalog ID. Never infer an ID from a numbered list position. If only a name is known, call search_products instead.", {
         "product_id": POSITIVE_ID, "payment_method": PAYMENT,
     }, ["product_id"]),
     _tool("search_policies", "Retrieve English manual sections with source pages about opening hours, address, payment, shipping, returns and other policies.", {
@@ -146,7 +146,9 @@ class Toolbox:
 
     def _get_product(self, product_id, payment_method="standard") -> dict:
         offer = Catalog(load_dataset(self.data_dir)).get_product(product_id, payment_method)
-        return {"product": _product(offer) if offer else None,
+        if offer is None:
+            return {"error": {"code": "product_not_found", "message": "No product has that ID. Search by the product name using search_products. Do not infer stock or availability from this ID mismatch."}}
+        return {"product": _product(offer),
                 "sources": ["products.csv", "promotions.csv"]}
 
     def _search_policies(self, query, limit=3) -> dict:

@@ -66,6 +66,12 @@ class ToolboxTests(unittest.TestCase):
         self.assertFalse(product["available"])
         self.assertIsNone(product["price_brl"])
 
+    def test_unknown_product_id_is_not_reported_as_out_of_stock(self):
+        result = Toolbox().execute("get_product", {"product_id": 1})
+        self.assertEqual(result["error"]["code"], "product_not_found")
+        self.assertNotIn("product", result)
+        self.assertIn("search_products", result["error"]["message"])
+
     def test_policy_results_include_text_section_and_page(self):
         result = Toolbox().execute("search_policies", {"query": "return", "limit": 1})
         section = result["sections"][0]
